@@ -70,3 +70,10 @@ ignore = [
     "B008", # do not perform function calls in argument defaults
     "C901", # complexity
 ]
+
+[dependency-groups]
+plot = [
+    "matplotlib>=3.10.7",
+    "pandas>=2.3.3",
+    "seaborn>=0.13.2",
+]

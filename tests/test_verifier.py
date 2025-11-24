@@ -34,7 +34,7 @@ MODEL_CONFIGS = [
 ]
 
 THRESHOLD = 0.65
-GALLERY_SIZE = 100
+GALLERY_SIZE = 200
 
 
 # ============================================================================
@@ -330,7 +330,7 @@ async def main():
     lat, lon = 50.054404, 19.935730  # Wawel Castle
 
     gallery_images = []
-    async for img in fetcher.get_images(lat, lon, num_images=GALLERY_SIZE):
+    async for img in fetcher.get_images(lat, lon, num_images=GALLERY_SIZE, distance=100):
         gallery_images.append(img)
     print(f"✅ Cached {len(gallery_images)} gallery images")
 
@@ -338,7 +338,7 @@ async def main():
     test_image_path = Path(__file__).parent / "input" / "wawel" / "test.png"
     query_image = Image.open(test_image_path).convert("RGB")
 
-    unrelated_image_path = Path(__file__).parent / "input" / "photo_2025-11-21_10-07-59.jpg"
+    unrelated_image_path = Path(__file__).parent / "input" / "photo_2024-07-21_12-07-58.jpg"
     unrelated_image = Image.open(unrelated_image_path).convert("RGB")
 
     # Run tests for all models
