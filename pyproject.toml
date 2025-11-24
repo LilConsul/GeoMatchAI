@@ -7,6 +7,7 @@ dependencies = [
     "pillow>=11.3.0",
     "torch>=2.9.1",
     "torchvision>=0.24.1",
+    "timm>=1.0.22",
 ]
 
 [tool.uv.sources] # TODO: make automatic selection based on available hardware
@@ -16,6 +17,13 @@ torch = [
 torchvision = [
     { index = "pytorch-cu128" },
 ]
+timm = [
+    { index = "pypi" },
+]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

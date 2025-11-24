@@ -47,9 +47,10 @@ class LandmarkVerifier:
         # Higher values = more similar (closer distance)
         euclidean_sim = 1 / (1 + euclidean_dist)
 
-        # Combined score: weighted average
-        # Cosine: 60% weight, Euclidean: 40% weight
-        combined_scores = 0.6 * cos_sim + 0.4 * euclidean_sim
+        # Combined score: use pure cosine similarity
+        # For L2-normalized vectors, cosine similarity is more reliable
+        # Cosine: 100% weight, Euclidean: 0% weight
+        combined_scores = 1.0 * cos_sim + 0.0 * euclidean_sim
 
         # Take maximum similarity score across all gallery items
         max_score = combined_scores.max().item()
