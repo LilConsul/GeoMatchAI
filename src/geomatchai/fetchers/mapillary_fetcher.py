@@ -1,5 +1,4 @@
 from PIL import Image
-from geojson import GeoJSON
 
 from geomatchai.fetchers.base_fetcher import BaseFetcher
 
@@ -36,14 +35,13 @@ class MapillaryFetcher(BaseFetcher):
             image_type="flat",
         ).to_dict()
 
-        print(f"{images_json=}")
         image_ids = [
             images_json["features"][i]["properties"]["id"]
             for i in range(min(num_images, len(images_json["features"])))
         ]
 
         images = [
-            self.interface.image_thumbnail(image_id, resolution=256)
+            self.interface.image_thumbnail(image_id, resolution=1024)
             for image_id in image_ids
         ]
         print(images)
@@ -52,25 +50,20 @@ class MapillaryFetcher(BaseFetcher):
 if __name__ == "__main__":  # TODO: remove this block
     import os
 
-    if not (mapillary_client_token := os.getenv("MAPILLARY_CLIENT_TOKEN")):
+    if not (mapillary_client_token := os.getenv("MAPILLARY_API_KEY")):
         raise ValueError(
-            "MAPILLARY_CLIENT_TOKEN environment variable not set.\n"
+            "MAPILLARY_API_KEY environment variable not set.\n"
             "Get your client token from: https://www.mapillary.com/dashboard/developers"
         )
 
-    # fetcher = MapillaryFetcher(mapillary_client_token)
-    #
-    # # Test Wawel Castle
-    # lat, lon = 50.055191, 19.937365
-    #
-    # images = fetcher.get_images(lat, lon, num_images=1)
-    # print(f"Fetched {len(images)} images.")
-    #
-    # for i, img in enumerate(images):
-    #     img.show(title=f"Image {i + 1}")
+    fetcher = MapillaryFetcher(mapillary_client_token)
 
-    interface = mly.interface
-    interface.set_access_token(mapillary_client_token)
+    # Test Wawel Castle
+    lat, lon = 50.054404, 19.935730
 
-    img = interface.image_thumbnail(image_id="846885049236095", resolution=256)
-    print(img)
+    images = fetcher.get_images(lat, lon, num_images=5)
+    print(f"Fetched {len(images)} images.")
+
+    for i, img in enumerate(images):
+        img.show(title=f"Image {i + 1}")
+
