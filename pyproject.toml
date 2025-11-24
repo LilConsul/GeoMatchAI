@@ -26,3 +26,28 @@ explicit = true
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
 default = true
+
+
+[tool.isort]
+profile = "black"
+skip_gitignore = true
+known_first_party = ["app", "tests"]
+
+[tool.ruff]
+target-version = "py314"
+indent-width = 4
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes
+    "I", # isort
+    "C", # flake8-comprehensions
+    "B", # flake8-bugbear
+]
+ignore = [
+    "E501", # line too long, handled by black
+    "B008", # do not perform function calls in argument defaults
+    "C901", # complexity
+]
