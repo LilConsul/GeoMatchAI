@@ -1,13 +1,20 @@
+import os
+
 import torch
 import torchvision.transforms as T
 from PIL import Image
-from torchvision.models.segmentation import deeplabv3_resnet101, DeepLabV3_ResNet101_Weights
+from torchvision.models.segmentation import (
+    DeepLabV3_ResNet101_Weights,
+    deeplabv3_resnet101,
+)
 
 
-class Prepocessor:
+class Preprocessor:
     def __init__(self, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
         self.device = device
-        self.model = deeplabv3_resnet101(weights=DeepLabV3_ResNet101_Weights.COCO_WITH_VOC_LABELS_V1, progress=True).to(self.device)
+        self.model = deeplabv3_resnet101(
+            weights=DeepLabV3_ResNet101_Weights.COCO_WITH_VOC_LABELS_V1, progress=True
+        ).to(self.device)
         self.model.eval()
 
         # COCO class index for "person" is 15 (0-indexed)
@@ -19,15 +26,6 @@ class Prepocessor:
                 T.Resize((520, 520)),
                 T.ToTensor(),
                 T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-            ]
-        )
-        # Inverse transform for output (to revert normalization if needed, but we'll work with tensors)
-        self.inv_transform = T.Compose(
-            [
-                T.Normalize(
-                    mean=[-0.485 / 0.229, -0.456 / 0.224, -0.406 / 0.225],
-                    std=[1 / 0.229, 1 / 0.224, 1 / 0.225],
-                )
             ]
         )
 
@@ -82,9 +80,7 @@ class Prepocessor:
 
         # Replace person pixels (mask=1) with mean, keep background (mask=0) as original
         cleaned_tensor = torch.where(
-            mask_expanded.bool(),
-            mean_filled_tensor,
-            image_tensor
+            mask_expanded.bool(), mean_filled_tensor, image_tensor
         )
 
         return cleaned_tensor
@@ -101,11 +97,37 @@ class Prepocessor:
 
         Raises:
             ValueError: If image cannot be loaded or processed.
+            FileNotFoundError: If image file doesn't exist.
         """
+        # Security: Validate file exists
+        if not os.path.exists(image_path):
+            raise FileNotFoundError(f"Image not found: {image_path}")
+
+        # Security: Validate file size to prevent OOM attacks
+        file_size = os.path.getsize(image_path)
+        if file_size > 50 * 1024 * 1024:  # 50MB limit
+            raise ValueError(
+                f"Image too large: {file_size / (1024 * 1024):.1f}MB (max 50MB)"
+            )
+
+        if file_size == 0:
+            raise ValueError("Image file is empty")
+
         try:
             image = Image.open(image_path).convert("RGB")
         except Exception as e:
             raise ValueError(f"Failed to load image: {e}") from e
+
+        # Security: Validate image dimensions
+        if image.width > 10000 or image.height > 10000:
+            raise ValueError(
+                f"Image dimensions too large: {image.width}x{image.height} (max 10000x10000)"
+            )
+
+        if image.width < 100 or image.height < 100:
+            raise ValueError(
+                f"Image dimensions too small: {image.width}x{image.height} (min 100x100)"
+            )
 
         mask = self.segment_person(image)
         cleaned_tensor = self.apply_mask(image, mask)

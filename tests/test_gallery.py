@@ -1,4 +1,3 @@
-from pathlib import Path
 from src.geomatchai.gallery.gallery_builder import GalleryBuilder
 
 if __name__ == "__main__":
@@ -14,11 +13,14 @@ if __name__ == "__main__":
 
     try:
         gallery_embeddings = builder.build_gallery(image_paths)
-        print(f"Gallery shape: {gallery_embeddings.shape}")  # Should be (N, D) where N=len(image_paths), D=1792 for B4
+        print(
+            f"Gallery shape: {gallery_embeddings.shape}"
+        )  # Should be (N, D) where N=len(image_paths), D=1792 for B4
         print("Gallery built successfully!")
 
         # Optional: Save embeddings for inspection
         import torch
+
         torch.save(gallery_embeddings, "output/gallery_embeddings.pt")
         print("Embeddings saved to output/gallery_embeddings.pt")
 

@@ -1,7 +1,9 @@
 from pathlib import Path
+
+import torch
+
 from src.geomatchai.gallery.gallery_builder import GalleryBuilder
 from src.geomatchai.verification.verifier import LandmarkVerifier
-import torch
 
 if __name__ == "__main__":
     # Initialize components
@@ -17,9 +19,13 @@ if __name__ == "__main__":
     verifier = LandmarkVerifier(gallery_embeddings, t_verify=0.8)
 
     # Process query image using the SAME preprocessor as gallery
-    query_tensor = builder.preprocessor.preprocess_image("input/photo_2024-07-21_12-07-58.jpg")
+    query_tensor = builder.preprocessor.preprocess_image(
+        "input/photo_2024-07-21_12-07-58.jpg"
+    )
     with torch.no_grad():
-        query_embedding = builder.feature_extractor(query_tensor.unsqueeze(0).to(device))
+        query_embedding = builder.feature_extractor(
+            query_tensor.unsqueeze(0).to(device)
+        )
 
     # Verify
     is_verified, max_score = verifier.verify(query_embedding)
@@ -28,6 +34,8 @@ if __name__ == "__main__":
     # Test with different threshold
     verifier.set_threshold(0.9)
     is_verified_high, max_score_high = verifier.verify(query_embedding)
-    print(f"With higher threshold (0.9): {is_verified_high}, Score: {max_score_high:.4f}")
+    print(
+        f"With higher threshold (0.9): {is_verified_high}, Score: {max_score_high:.4f}"
+    )
 
     print("Verification test completed!")

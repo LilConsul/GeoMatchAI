@@ -1,6 +1,5 @@
-import torch
 import torch.nn as nn
-from torchvision.models import efficientnet_b4, EfficientNet_B4_Weights
+from torchvision.models import EfficientNet_B4_Weights, efficientnet_b4
 
 
 class EfficientNetFeatureExtractor(nn.Module):
@@ -17,6 +16,10 @@ class EfficientNetFeatureExtractor(nn.Module):
 
         # Set to evaluation mode for consistent inference
         self.model.eval()
+
+        # Freeze model parameters to prevent memory leaks during inference
+        for param in self.model.parameters():
+            param.requires_grad = False
 
     def forward(self, x):
         return self.model(x)

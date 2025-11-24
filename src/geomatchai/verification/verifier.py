@@ -1,6 +1,7 @@
+from typing import Tuple
+
 import torch
 import torch.nn.functional as F
-from typing import Tuple
 
 
 class LandmarkVerifier:
@@ -55,6 +56,10 @@ class LandmarkVerifier:
 
         # Decision based on threshold
         is_verified = max_score > self.t_verify
+
+        # Clean up GPU memory
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         return is_verified, max_score
 
