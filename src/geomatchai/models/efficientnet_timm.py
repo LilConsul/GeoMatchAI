@@ -1,11 +1,3 @@
- """
-Alternative EfficientNet implementation using timm library with better landmark weights.
-
-Install: uv add timm
-
-This uses EfficientNet trained with NoisyStudent on a larger dataset including landmarks.
-"""
-
 import timm
 import torch.nn as nn
 import torch.nn.functional as F

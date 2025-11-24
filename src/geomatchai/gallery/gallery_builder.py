@@ -16,7 +16,7 @@ class GalleryBuilder:
         )
 
     def build_gallery(
-        self, image_paths: List[Path], batch_size: int = 32
+        self, image_paths: List[Path], batch_size: int = 32, skip_preprocessing: bool = False
     ) -> torch.Tensor:
         """
         Process all reference images and return N×D embedding matrix.
@@ -24,6 +24,8 @@ class GalleryBuilder:
         Args:
             image_paths: List of paths to reference images
             batch_size: Maximum batch size to prevent OOM (default 32)
+            skip_preprocessing: Skip person removal for clean gallery images (default False)
+                               Set to True if gallery photos don't have people - preserves features!
 
         Returns:
             Gallery embeddings tensor of shape (N, D)
@@ -36,7 +38,23 @@ class GalleryBuilder:
 
             for path in batch_paths:
                 try:
-                    img_tensor = self.preprocessor.preprocess_image(str(path))
+                    if skip_preprocessing:
+                        # Load and normalize WITHOUT person removal (for clean gallery images)
+                        from PIL import Image
+                        import torchvision.transforms as T
+
+                        image = Image.open(str(path)).convert("RGB")
+                        image = T.Resize((520, 520))(image)  # Match query size
+                        tensor = T.ToTensor()(image)
+                        tensor = T.Normalize(
+                            mean=[0.485, 0.456, 0.406],
+                            std=[0.229, 0.224, 0.225]
+                        )(tensor).to(self.device)
+                        img_tensor = tensor
+                    else:
+                        # Use full preprocessing WITH person removal (for selfies)
+                        img_tensor = self.preprocessor.preprocess_image(str(path))
+
                     processed_images.append(img_tensor)
                 except Exception as e:
                     print(f"Warning: Failed to process {path}: {e}")
