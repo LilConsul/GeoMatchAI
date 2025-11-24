@@ -11,7 +11,13 @@ if __name__ == "__main__":
     builder = GalleryBuilder(device=device)
 
     # Build small gallery (using test image as reference)
-    image_paths = [Path("input/photo_2024-07-21_12-07-58.jpg")]
+    image_paths = [
+        Path("input/wawel/wawel1.jpg"),
+        Path("input/wawel/wawel2.jpg"),
+        Path("input/wawel/wawel3.jpg"),
+        Path("input/wawel/wawel4.jpg"),
+        Path("input/wawel/wawel5.jpg"),
+    ]
     gallery_embeddings = builder.build_gallery(image_paths)
     print(f"Gallery built with shape: {gallery_embeddings.shape}")
 
@@ -19,9 +25,7 @@ if __name__ == "__main__":
     verifier = LandmarkVerifier(gallery_embeddings, t_verify=0.8)
 
     # Process query image using the SAME preprocessor as gallery
-    query_tensor = builder.preprocessor.preprocess_image(
-        "input/photo_2024-07-21_12-07-58.jpg"
-    )
+    query_tensor = builder.preprocessor.preprocess_image("input/wawel/test.png")
     with torch.no_grad():
         query_embedding = builder.feature_extractor(
             query_tensor.unsqueeze(0).to(device)
