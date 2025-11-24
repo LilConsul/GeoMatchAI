@@ -1,16 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import AsyncGenerator
 
 from PIL import Image
 
 
 class BaseFetcher(ABC):
     @abstractmethod
-    def get_images(
+    async def get_images(
         self, lat: float, lon: float, num_images: int = 20
-    ) -> List[Image.Image]:
+    ) -> AsyncGenerator[Image.Image, None]:
         """
         Fetches reference images around given coordinates.
-        Returns a list of PIL Images.
+        Yields PIL Images as they are downloaded/fetched.
         """
         pass
