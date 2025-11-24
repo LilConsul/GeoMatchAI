@@ -1,7 +1,7 @@
 [project]
 name = "GeoMatchAI"
 version = "0.1.0"
-#description = "Add your description here"
+description = "High-Performance Visual Place Verification System"
 requires-python = ">=3.14"
 dependencies = [
     "pillow>=11.3.0",

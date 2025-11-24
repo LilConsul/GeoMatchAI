@@ -1,4 +1,4 @@
-from fetchers.base_fetcher import BaseFetcher
+from .base_fetcher import BaseFetcher
 from PIL import Image
 # import requests
 
