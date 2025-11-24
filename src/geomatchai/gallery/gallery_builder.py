@@ -40,11 +40,10 @@ class GalleryBuilder:
             try:
                 if skip_preprocessing:
                     # Apply transforms WITHOUT person removal (for clean gallery images)
-                    img_tensor = self.preprocessor.transform(image).to(self.device)
+                    img_tensor = self.preprocessor.transform_image(image)
                 else:
                     # Use full preprocessing WITH person removal (for selfies)
-                    mask = self.preprocessor.segment_person(image)
-                    img_tensor = self.preprocessor.apply_mask(image, mask)
+                    img_tensor = self.preprocessor.preprocess_image_from_pil(image)
 
                 processed_images.append(img_tensor)
 

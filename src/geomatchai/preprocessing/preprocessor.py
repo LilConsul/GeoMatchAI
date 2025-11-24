@@ -132,3 +132,46 @@ class Preprocessor:
         mask = self.segment_person(image)
         cleaned_tensor = self.apply_mask(image, mask)
         return cleaned_tensor
+
+    def transform_image(self, image: Image.Image) -> torch.Tensor:
+        """
+        Apply the standard transforms to a PIL image.
+
+        Args:
+            image: PIL Image to transform.
+
+        Returns:
+            Transformed tensor (3, 520, 520).
+        """
+        return self.transform(image)
+
+    def preprocess_image_from_pil(self, image: Image.Image) -> torch.Tensor:
+        """
+        Preprocess an image given as a PIL Image object.
+
+        This method serves as an alternative to preprocess_image, allowing
+        direct preprocessing of PIL Images without file I/O.
+
+        Args:
+            image: PIL Image of the user's selfie.
+
+        Returns:
+            Pre-processed image tensor (3, 520, 520) with person removed.
+
+        Raises:
+            ValueError: If image cannot be processed.
+        """
+        # Security: Validate image dimensions
+        if image.width > 10000 or image.height > 10000:
+            raise ValueError(
+                f"Image dimensions too large: {image.width}x{image.height} (max 10000x10000)"
+            )
+
+        if image.width < 100 or image.height < 100:
+            raise ValueError(
+                f"Image dimensions too small: {image.width}x{image.height} (min 100x100)"
+            )
+
+        mask = self.segment_person(image)
+        cleaned_tensor = self.apply_mask(image, mask)
+        return cleaned_tensor
