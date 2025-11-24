@@ -52,21 +52,41 @@ class Prepocessor:
 
     def apply_mask(self, image: Image.Image, mask: torch.Tensor) -> torch.Tensor:
         """
-        Apply the person mask to the image, setting masked pixels to black.
+        Apply the person mask using Neutral Mean Replacement method.
+
+        Replaces person pixels with the image's per-channel mean value,
+        effectively removing person features while maintaining color distribution.
 
         Args:
             image: Original PIL Image.
-            mask: Binary mask tensor from segmentation.
+            mask: Binary mask tensor from segmentation (H, W).
 
         Returns:
             Cleaned image tensor of shape (3, H, W) with person removed.
         """
-        # Convert image to tensor (resize to match mask)
-        image_tensor = T.ToTensor()(T.Resize((520, 520))(image)).to(self.device)
-        # Expand mask to 3 channels
+        # Resize and convert to tensor
+        resized_image = T.Resize((520, 520))(image)
+        image_tensor = T.ToTensor()(resized_image).to(self.device)
+
+        # Calculate per-channel mean (better color preservation than global mean)
+        # Shape: (3,) for RGB channels
+        channel_means = image_tensor.mean(dim=(1, 2), keepdim=True)
+
+        # Create replacement tensor filled with per-channel means
+        # Shape: (3, H, W)
+        mean_filled_tensor = channel_means.expand_as(image_tensor)
+
+        # Expand mask to 3 channels to match image tensor
+        # Shape: (3, H, W)
         mask_expanded = mask.unsqueeze(0).repeat(3, 1, 1)
-        # Apply mask: set person pixels to 0 (black)
-        cleaned_tensor = image_tensor * (1 - mask_expanded)
+
+        # Replace person pixels (mask=1) with mean, keep background (mask=0) as original
+        cleaned_tensor = torch.where(
+            mask_expanded.bool(),
+            mean_filled_tensor,
+            image_tensor
+        )
+
         return cleaned_tensor
 
     def preprocess_image(self, image_path: str) -> torch.Tensor:
