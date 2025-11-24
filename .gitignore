@@ -1,4 +1,4 @@
-tests/input/*
+#tests/input/*
 tests/output/*
 
 *.log
