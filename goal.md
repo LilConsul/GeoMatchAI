@@ -73,13 +73,13 @@ This implements the essential feedback loop for system improvement.
 
 ## Deliverables
 
-| ID | Task Description | Status |
-|:---|:-----------------|:-------|
-| **P-1** | Research and acquire **EfficientNet** (B4/B5) weights pre-trained on GLDv2. | Pending |
-| **P-2** | Implement the pre-processing module, including semantic segmentation for person removal. | Pending |
-| **G-2** | Implement the `load_gallery` function using `torch.stack()` for efficient batching and storing the final *N × D* embedding matrix. | Pending |
-| **V-1** | Implement the core verification function using **Combined Similarity** (*S_combined*) against the Reference Matrix. | Pending |
-| **V-2** | Establish and document a reliable baseline for the **Verification Threshold** (*T_verify*). | Pending |
+| ID | Task Description | Status   |
+|:---|:-----------------|:---------|
+| **P-1** | Research and acquire **EfficientNet** (B4/B5) weights pre-trained on GLDv2. | Done     |
+| **P-2** | Implement the pre-processing module, including semantic segmentation for person removal. | Done     |
+| **G-2** | Implement the `load_gallery` function using `torch.stack()` for efficient batching and storing the final *N × D* embedding matrix. | Pending  |
+| **V-1** | Implement the core verification function using **Combined Similarity** (*S_combined*) against the Reference Matrix. | Pending  |
+| **V-2** | Establish and document a reliable baseline for the **Verification Threshold** (*T_verify*). | Pending  |
 | **V-3** | Implement optional security check using **Negative Anchors** (other landmarks/castles) for added robustness. | Optional |
-| **CI-1** | Define the **Acquisition Threshold** (*T_acquire*) and implement the logic to flag high-confidence user photos for future training. | Pending |
-| **CI-2** | Design the **Human-in-the-Loop** review pipeline and the periodic **Model Re-training** and **Deployment** strategy. | Pending |
+| **CI-1** | Define the **Acquisition Threshold** (*T_acquire*) and implement the logic to flag high-confidence user photos for future training. | Pending  |
+| **CI-2** | Design the **Human-in-the-Loop** review pipeline and the periodic **Model Re-training** and **Deployment** strategy. | Pending  |
