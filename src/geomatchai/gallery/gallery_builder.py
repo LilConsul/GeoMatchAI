@@ -1,10 +1,11 @@
 from typing import AsyncGenerator
+import logging
 
 import torch
 from PIL import Image
 
 from ..models.efficientnet import EfficientNetFeatureExtractor
-from ..preprocessing.segmentation import Preprocessor
+from ..preprocessing.preprocessor import Preprocessor
 
 
 class GalleryBuilder:
@@ -33,8 +34,9 @@ class GalleryBuilder:
         Returns:
             Gallery embeddings tensor of shape (N, D)
         """
-        all_embeddings = []
-        processed_images = []
+        all_embeddings: list[torch.Tensor] = []
+        processed_images: list[torch.Tensor] = []
+        total_processed: int = 0
 
         async for image in image_generator:
             try:
@@ -49,33 +51,40 @@ class GalleryBuilder:
 
                 # Batch process when batch_size is reached
                 if len(processed_images) == batch_size:
-                    batch = torch.stack(processed_images).to(self.device)
-
-                    # Extract features
-                    with torch.no_grad():
-                        embeddings = self.feature_extractor(batch)
-
-                    all_embeddings.append(embeddings.cpu())  # Move to CPU to save GPU memory
+                    batch_size_here = len(processed_images)
+                    embeddings = self._process_batch(processed_images)
+                    all_embeddings.append(embeddings)  # Move to CPU to save GPU memory
                     processed_images = []  # Reset for next batch
-
-                    # Clean up GPU memory
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
+                    total_processed += batch_size_here
             except Exception as e:
-                print(f"Warning: Failed to process image: {e}")
                 continue
 
         # Process any remaining images in the last batch
         if processed_images:
-            batch = torch.stack(processed_images).to(self.device)
-
-            # Extract features
-            with torch.no_grad():
-                embeddings = self.feature_extractor(batch)
-
-            all_embeddings.append(embeddings.cpu())  # Move to CPU to save GPU memory
+            batch_size_here = len(processed_images)
+            embeddings = self._process_batch(processed_images)
+            all_embeddings.append(embeddings)  # Move to CPU to save GPU memory
+            total_processed += batch_size_here
 
         if not all_embeddings:
             raise ValueError("No images could be processed successfully")
 
         return torch.cat(all_embeddings, dim=0).to(self.device)  # Shape: (N, D)
+
+    def _process_batch(self, batch_images: list[torch.Tensor]) -> torch.Tensor:
+        """
+        Process a batch of images through the feature extractor.
+
+        Args:
+            batch_images: List of image tensors to process.
+
+        Returns:
+            Embeddings tensor for the batch.
+        """
+        batch = torch.stack(batch_images).to(self.device)
+        with torch.no_grad():
+            embeddings = self.feature_extractor(batch)
+        # Clean up GPU memory
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        return embeddings.cpu()

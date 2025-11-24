@@ -10,6 +10,12 @@ from torchvision.models.segmentation import (
 
 
 class Preprocessor:
+    # Constants for validation
+    MAX_IMAGE_SIZE_MB = 50
+    MAX_DIMENSION = 10000
+    MIN_DIMENSION = 100
+    TARGET_SIZE = (520, 520)
+
     def __init__(self, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
         self.device = device
         self.model = deeplabv3_resnet101(
@@ -23,11 +29,40 @@ class Preprocessor:
         # Transforms for input image (resize to 520x520 as per DeepLabV3 input)
         self.transform = T.Compose(
             [
-                T.Resize((520, 520)),
+                T.Resize(self.TARGET_SIZE),
                 T.ToTensor(),
                 T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         )
+
+        # Separate normalize transform for output consistency
+        self.normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+    def _validate_image_dimensions(self, image: Image.Image) -> None:
+        """
+        Validate image dimensions for security.
+
+        Args:
+            image: PIL Image to validate.
+
+        Raises:
+            ValueError: If dimensions are invalid.
+        """
+        if image.width > self.MAX_DIMENSION or image.height > self.MAX_DIMENSION:
+            self.logger.error(
+                f"Image dimensions too large: {image.width}x{image.height} (max {self.MAX_DIMENSION}x{self.MAX_DIMENSION})"
+            )
+            raise ValueError(
+                f"Image dimensions too large: {image.width}x{image.height} (max {self.MAX_DIMENSION}x{self.MAX_DIMENSION})"
+            )
+
+        if image.width < self.MIN_DIMENSION or image.height < self.MIN_DIMENSION:
+            self.logger.error(
+                f"Image dimensions too small: {image.width}x{image.height} (min {self.MIN_DIMENSION}x{self.MIN_DIMENSION})"
+            )
+            raise ValueError(
+                f"Image dimensions too small: {image.width}x{image.height} (min {self.MIN_DIMENSION}x{self.MIN_DIMENSION})"
+            )
 
     def segment_person(self, image: Image.Image) -> torch.Tensor:
         """
@@ -63,7 +98,7 @@ class Preprocessor:
             Cleaned image tensor of shape (3, H, W) with person removed.
         """
         # Resize and convert to tensor
-        resized_image = T.Resize((520, 520))(image)
+        resized_image = T.Resize(self.TARGET_SIZE)(image)
         image_tensor = T.ToTensor()(resized_image).to(self.device)
 
         # Calculate per-channel mean (better color preservation than global mean)
@@ -83,7 +118,8 @@ class Preprocessor:
             mask_expanded.bool(), mean_filled_tensor, image_tensor
         )
 
-        return cleaned_tensor
+        # Apply normalization to match the transform output format
+        return self.normalize(cleaned_tensor)
 
     def preprocess_image(self, image_path: str) -> torch.Tensor:
         """
@@ -105,29 +141,25 @@ class Preprocessor:
 
         # Security: Validate file size to prevent OOM attacks
         file_size = os.path.getsize(image_path)
-        if file_size > 50 * 1024 * 1024:  # 50MB limit
+        if file_size > self.MAX_IMAGE_SIZE_MB * 1024 * 1024:  # 50MB limit
+            self.logger.error(
+                f"Image too large: {file_size / (1024 * 1024):.1f}MB (max {self.MAX_IMAGE_SIZE_MB}MB)"
+            )
             raise ValueError(
-                f"Image too large: {file_size / (1024 * 1024):.1f}MB (max 50MB)"
+                f"Image too large: {file_size / (1024 * 1024):.1f}MB (max {self.MAX_IMAGE_SIZE_MB}MB)"
             )
 
         if file_size == 0:
+            self.logger.error("Image file is empty")
             raise ValueError("Image file is empty")
 
         try:
             image = Image.open(image_path).convert("RGB")
         except Exception as e:
+            self.logger.error(f"Failed to load image: {e}")
             raise ValueError(f"Failed to load image: {e}") from e
 
-        # Security: Validate image dimensions
-        if image.width > 10000 or image.height > 10000:
-            raise ValueError(
-                f"Image dimensions too large: {image.width}x{image.height} (max 10000x10000)"
-            )
-
-        if image.width < 100 or image.height < 100:
-            raise ValueError(
-                f"Image dimensions too small: {image.width}x{image.height} (min 100x100)"
-            )
+        self._validate_image_dimensions(image)
 
         mask = self.segment_person(image)
         cleaned_tensor = self.apply_mask(image, mask)
@@ -161,16 +193,7 @@ class Preprocessor:
         Raises:
             ValueError: If image cannot be processed.
         """
-        # Security: Validate image dimensions
-        if image.width > 10000 or image.height > 10000:
-            raise ValueError(
-                f"Image dimensions too large: {image.width}x{image.height} (max 10000x10000)"
-            )
-
-        if image.width < 100 or image.height < 100:
-            raise ValueError(
-                f"Image dimensions too small: {image.width}x{image.height} (min 100x100)"
-            )
+        self._validate_image_dimensions(image)
 
         mask = self.segment_person(image)
         cleaned_tensor = self.apply_mask(image, mask)
