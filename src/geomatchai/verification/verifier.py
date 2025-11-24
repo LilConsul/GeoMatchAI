@@ -12,13 +12,13 @@ class LandmarkVerifier:
     normalized Euclidean distance against a reference gallery.
     """
 
-    def __init__(self, gallery_embeddings: torch.Tensor, t_verify: float = 0.8):
+    def __init__(self, gallery_embeddings: torch.Tensor, t_verify: float = 0.65):
         """
         Initialize the verifier with reference gallery and threshold.
 
         Args:
             gallery_embeddings: Reference gallery matrix of shape (N, D)
-            t_verify: Verification threshold (default 0.8)
+            t_verify: Verification threshold (default 0.65 - optimized for TIMM-NoisyStudent)
         """
         self.gallery = gallery_embeddings
         self.t_verify = t_verify

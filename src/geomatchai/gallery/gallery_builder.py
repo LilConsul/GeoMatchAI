@@ -10,8 +10,8 @@ class GalleryBuilder:
     def __init__(
         self,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
-        model_type: str = "torchvision",
-        model_variant: str = None,
+        model_type: str = "timm",
+        model_variant: str = "tf_efficientnet_b4.ns_jft_in1k",
     ):
         """
         Initialize GalleryBuilder with configurable feature extractor.
