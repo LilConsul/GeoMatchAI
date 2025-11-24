@@ -1,4 +1,5 @@
-tests/photo
+tests/input/*
+tests/output/*
 
 *.log
 .idea
