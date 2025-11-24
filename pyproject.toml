@@ -6,13 +6,14 @@ build-backend = "setuptools.build_meta"
 name = "GeoMatchAI"
 version = "0.1.0"
 description = "High-Performance Visual Place Verification System"
-requires-python = ">=3.14"
+requires-python = "==3.13.*"
 dependencies = [
     "pillow>=11.3.0",
     "torch>=2.9.1",
     "torchvision>=0.24.1",
     "timm>=1.0.22",
     "requests>=2.32.5",
+    "mapillary>=1.0.15",
 ]
 
 [tool.setuptools.packages.find]
