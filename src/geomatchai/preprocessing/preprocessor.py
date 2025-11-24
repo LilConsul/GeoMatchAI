@@ -49,17 +49,11 @@ class Preprocessor:
             ValueError: If dimensions are invalid.
         """
         if image.width > self.MAX_DIMENSION or image.height > self.MAX_DIMENSION:
-            self.logger.error(
-                f"Image dimensions too large: {image.width}x{image.height} (max {self.MAX_DIMENSION}x{self.MAX_DIMENSION})"
-            )
             raise ValueError(
                 f"Image dimensions too large: {image.width}x{image.height} (max {self.MAX_DIMENSION}x{self.MAX_DIMENSION})"
             )
 
         if image.width < self.MIN_DIMENSION or image.height < self.MIN_DIMENSION:
-            self.logger.error(
-                f"Image dimensions too small: {image.width}x{image.height} (min {self.MIN_DIMENSION}x{self.MIN_DIMENSION})"
-            )
             raise ValueError(
                 f"Image dimensions too small: {image.width}x{image.height} (min {self.MIN_DIMENSION}x{self.MIN_DIMENSION})"
             )
@@ -121,9 +115,28 @@ class Preprocessor:
         # Apply normalization to match the transform output format
         return self.normalize(cleaned_tensor)
 
-    def preprocess_image(self, image_path: str) -> torch.Tensor:
+    def preprocess_image(self, image: Image.Image) -> torch.Tensor:
         """
-        Full pipeline: Load image, segment person, apply mask.
+        Full pipeline: Segment person and apply mask to remove them.
+
+        Args:
+            image: PIL Image of the user's selfie.
+
+        Returns:
+            Pre-processed image tensor (3, 520, 520) with person removed.
+
+        Raises:
+            ValueError: If image cannot be processed.
+        """
+        self._validate_image_dimensions(image)
+
+        mask = self.segment_person(image)
+        cleaned_tensor = self.apply_mask(image, mask)
+        return cleaned_tensor
+
+    def preprocess_image_from_path(self, image_path: str) -> torch.Tensor:
+        """
+        Convenience method: Load image from file path and preprocess.
 
         Args:
             image_path: Path to the user's selfie image.
@@ -142,28 +155,19 @@ class Preprocessor:
         # Security: Validate file size to prevent OOM attacks
         file_size = os.path.getsize(image_path)
         if file_size > self.MAX_IMAGE_SIZE_MB * 1024 * 1024:  # 50MB limit
-            self.logger.error(
-                f"Image too large: {file_size / (1024 * 1024):.1f}MB (max {self.MAX_IMAGE_SIZE_MB}MB)"
-            )
             raise ValueError(
                 f"Image too large: {file_size / (1024 * 1024):.1f}MB (max {self.MAX_IMAGE_SIZE_MB}MB)"
             )
 
         if file_size == 0:
-            self.logger.error("Image file is empty")
             raise ValueError("Image file is empty")
 
         try:
             image = Image.open(image_path).convert("RGB")
         except Exception as e:
-            self.logger.error(f"Failed to load image: {e}")
             raise ValueError(f"Failed to load image: {e}") from e
 
-        self._validate_image_dimensions(image)
-
-        mask = self.segment_person(image)
-        cleaned_tensor = self.apply_mask(image, mask)
-        return cleaned_tensor
+        return self.preprocess_image(image)
 
     def transform_image(self, image: Image.Image) -> torch.Tensor:
         """
@@ -177,24 +181,4 @@ class Preprocessor:
         """
         return self.transform(image)
 
-    def preprocess_image_from_pil(self, image: Image.Image) -> torch.Tensor:
-        """
-        Preprocess an image given as a PIL Image object.
 
-        This method serves as an alternative to preprocess_image, allowing
-        direct preprocessing of PIL Images without file I/O.
-
-        Args:
-            image: PIL Image of the user's selfie.
-
-        Returns:
-            Pre-processed image tensor (3, 520, 520) with person removed.
-
-        Raises:
-            ValueError: If image cannot be processed.
-        """
-        self._validate_image_dimensions(image)
-
-        mask = self.segment_person(image)
-        cleaned_tensor = self.apply_mask(image, mask)
-        return cleaned_tensor

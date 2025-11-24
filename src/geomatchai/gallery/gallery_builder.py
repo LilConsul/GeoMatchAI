@@ -1,5 +1,4 @@
 from typing import AsyncGenerator
-import logging
 
 import torch
 from PIL import Image
@@ -45,7 +44,7 @@ class GalleryBuilder:
                     img_tensor = self.preprocessor.transform_image(image)
                 else:
                     # Use full preprocessing WITH person removal (for selfies)
-                    img_tensor = self.preprocessor.preprocess_image_from_pil(image)
+                    img_tensor = self.preprocessor.preprocess_image(image)
 
                 processed_images.append(img_tensor)
 
