@@ -9,6 +9,7 @@ if __name__ == "__main__":
     # Using the test photo (in a real scenario, you'd have multiple reference images)
     image_paths = [
         "input/photo_2024-07-21_12-07-58.jpg",
+        "input/photo_2025-11-21_10-07-59.jpg",
     ]
 
     try:
