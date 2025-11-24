@@ -1,5 +1,7 @@
-from .base_fetcher import BaseFetcher
 from PIL import Image
+
+from .base_fetcher import BaseFetcher
+
 # import requests
 
 
