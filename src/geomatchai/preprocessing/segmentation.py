@@ -1,13 +1,13 @@
 import torch
 import torchvision.transforms as T
 from PIL import Image
-from torchvision.models.segmentation import deeplabv3_resnet101
+from torchvision.models.segmentation import deeplabv3_resnet101, DeepLabV3_ResNet101_Weights
 
 
 class Prepocessor:
     def __init__(self, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
         self.device = device
-        self.model = deeplabv3_resnet101(pretrained=True, progress=True).to(self.device)
+        self.model = deeplabv3_resnet101(weights=DeepLabV3_ResNet101_Weights.COCO_WITH_VOC_LABELS_V1, progress=True).to(self.device)
         self.model.eval()
 
         # COCO class index for "person" is 15 (0-indexed)
