@@ -8,18 +8,18 @@ class EfficientNetFeatureExtractor(nn.Module):
     EfficientNet feature extractor using timm library.
 
     Supports better pre-trained weights than torchvision:
-    - tf_efficientnet_b4_ns: NoisyStudent training (better generalization)
-    - tf_efficientnet_b4_ap: AdvProp training (better robustness)
+    - tf_efficientnet_b4.ns_jft_in1k: NoisyStudent training (better generalization)
+    - tf_efficientnet_b4.ap_in1k: AdvProp training (better robustness)
     """
 
-    def __init__(self, model_variant="tf_efficientnet_b4_ns"):
+    def __init__(self, model_variant="tf_efficientnet_b4.ns_jft_in1k"):
         """
         Initialize feature extractor with timm models.
 
         Args:
             model_variant: Model architecture. Options:
-                - 'tf_efficientnet_b4_ns': NoisyStudent (RECOMMENDED)
-                - 'tf_efficientnet_b4_ap': AdvProp
+                - 'tf_efficientnet_b4.ns_jft_in1k': NoisyStudent (RECOMMENDED)
+                - 'tf_efficientnet_b4.ap_in1k': AdvProp
                 - 'tf_efficientnet_b4': Standard
         """
         super().__init__()
@@ -70,10 +70,10 @@ class LandmarkEfficientNet(nn.Module):
         self.models = nn.ModuleList(
             [
                 timm.create_model(
-                    "tf_efficientnet_b4_ns", pretrained=True, num_classes=0
+                    "tf_efficientnet_b4.ns_jft_in1k", pretrained=True, num_classes=0
                 ),
                 timm.create_model(
-                    "tf_efficientnet_b4_ap", pretrained=True, num_classes=0
+                    "tf_efficientnet_b4.ap_in1k", pretrained=True, num_classes=0
                 ),
             ]
         )
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     import torch
 
     # Test the model
-    model = EfficientNetFeatureExtractor("tf_efficientnet_b4_ns")
+    model = EfficientNetFeatureExtractor("tf_efficientnet_b4.ns_jft_in1k")
 
     # Random input (batch_size=2, RGB, 380x380)
     x = torch.randn(2, 3, 380, 380)

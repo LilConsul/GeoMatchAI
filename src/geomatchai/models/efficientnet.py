@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch.nn.functional as F
 from torchvision.models import EfficientNet_B4_Weights, efficientnet_b4
 
 
@@ -22,4 +23,14 @@ class EfficientNetFeatureExtractor(nn.Module):
             param.requires_grad = False
 
     def forward(self, x):
-        return self.model(x)
+        """
+        Extract and L2-normalize features for metric learning.
+
+        L2 normalization is CRITICAL for:
+        - Cosine similarity to work correctly
+        - Fair comparison between different images
+        - Better discrimination between locations
+        """
+        features = self.model(x)
+        # L2 normalize: each feature vector has unit length
+        return F.normalize(features, p=2, dim=1)

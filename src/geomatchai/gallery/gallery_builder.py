@@ -3,17 +3,62 @@ from typing import AsyncGenerator
 import torch
 from PIL import Image
 
-from ..models.efficientnet import EfficientNetFeatureExtractor
 from ..preprocessing.preprocessor import Preprocessor
 
 
 class GalleryBuilder:
-    def __init__(self, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
+    def __init__(
+        self,
+        device: str = "cuda" if torch.cuda.is_available() else "cpu",
+        model_type: str = "torchvision",
+        model_variant: str = None,
+    ):
+        """
+        Initialize GalleryBuilder with configurable feature extractor.
+
+        Args:
+            device: Device to run on ('cuda' or 'cpu')
+            model_type: Type of model to use:
+                - 'torchvision': Standard EfficientNet-B4 from torchvision
+                - 'timm': Better pre-trained EfficientNet from timm library
+                - 'timm_ensemble': Ensemble of multiple timm models (slower but better)
+            model_variant: Specific variant for timm models:
+                - 'tf_efficientnet_b4.ns_jft_in1k': NoisyStudent (RECOMMENDED for timm)
+                - 'tf_efficientnet_b4.ap_in1k': AdvProp
+                - 'tf_efficientnet_b4': Standard
+                - None: Use default for selected model_type
+        """
         self.device = device
+        self.model_type = model_type
         self.preprocessor = Preprocessor(device=self.device)
-        self.feature_extractor = EfficientNetFeatureExtractor(model_variant="b4").to(
-            self.device
-        )
+
+        # Load appropriate feature extractor
+        if model_type == "torchvision":
+            from ..models.efficientnet import EfficientNetFeatureExtractor
+            variant = model_variant or "b4"
+            self.feature_extractor = EfficientNetFeatureExtractor(
+                model_variant=variant
+            ).to(self.device)
+            print(f"Using torchvision EfficientNet-{variant}")
+
+        elif model_type == "timm":
+            from ..models.efficientnet_timm import EfficientNetFeatureExtractor
+            variant = model_variant or "tf_efficientnet_b4.ns_jft_in1k"
+            self.feature_extractor = EfficientNetFeatureExtractor(
+                model_variant=variant
+            ).to(self.device)
+            print(f"Using timm model: {variant}")
+
+        elif model_type == "timm_ensemble":
+            from ..models.efficientnet_timm import LandmarkEfficientNet
+            self.feature_extractor = LandmarkEfficientNet().to(self.device)
+            print("Using timm ensemble (NoisyStudent + AdvProp)")
+
+        else:
+            raise ValueError(
+                f"Unknown model_type: {model_type}. "
+                f"Choose from: 'torchvision', 'timm', 'timm_ensemble'"
+            )
 
     async def build_gallery(
         self,
