@@ -67,10 +67,16 @@ class LandmarkEfficientNet(nn.Module):
     def __init__(self):
         super().__init__()
         # Option 1: Use multiple models and average embeddings
-        self.models = nn.ModuleList([
-            timm.create_model('tf_efficientnet_b4_ns', pretrained=True, num_classes=0),
-            timm.create_model('tf_efficientnet_b4_ap', pretrained=True, num_classes=0),
-        ])
+        self.models = nn.ModuleList(
+            [
+                timm.create_model(
+                    "tf_efficientnet_b4_ns", pretrained=True, num_classes=0
+                ),
+                timm.create_model(
+                    "tf_efficientnet_b4_ap", pretrained=True, num_classes=0
+                ),
+            ]
+        )
 
         for model in self.models:
             model.eval()
@@ -108,4 +114,3 @@ if __name__ == "__main__":
     print(f"Input shape: {x.shape}")
     print(f"Output shape: {features.shape}")
     print(f"Feature norm: {features.norm(dim=1)}")  # Should be ~1.0 (normalized)
-

@@ -36,7 +36,9 @@ if __name__ == "__main__":
     image = Image.open("input/wawel/wawel1.jpg").convert("RGB")
     image = T.Resize((520, 520))(image)
     tensor = T.ToTensor()(image)
-    tensor = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(tensor).to(device)
+    tensor = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(
+        tensor
+    ).to(device)
 
     with torch.no_grad():
         identical_embedding = builder.feature_extractor(tensor.unsqueeze(0))
@@ -63,7 +65,9 @@ if __name__ == "__main__":
     image_no_prep = Image.open("input/wawel/test.png").convert("RGB")
     image_no_prep = T.Resize((520, 520))(image_no_prep)
     tensor_no_prep = T.ToTensor()(image_no_prep)
-    tensor_no_prep = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(tensor_no_prep).to(device)
+    tensor_no_prep = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(
+        tensor_no_prep
+    ).to(device)
     with torch.no_grad():
         query_embedding_no_prep = builder.feature_extractor(tensor_no_prep.unsqueeze(0))
     is_verified_no_prep, score_no_prep = verifier.verify(query_embedding_no_prep)
@@ -73,14 +77,14 @@ if __name__ == "__main__":
     # Test with different threshold
     verifier.set_threshold(0.75)
     is_verified_high, max_score_high = verifier.verify(query_embedding)
-    print(
-        f"\nWith threshold 0.75: {is_verified_high}, Score: {max_score_high:.4f}"
-    )
+    print(f"\nWith threshold 0.75: {is_verified_high}, Score: {max_score_high:.4f}")
 
     print("\n=== NEGATIVE TEST: Completely Different Image ===")
     # Test with a different image (should score low)
     try:
-        different_tensor = builder.preprocessor.preprocess_image("input/photo_2024-07-21_12-07-58.jpg")
+        different_tensor = builder.preprocessor.preprocess_image(
+            "input/photo_2024-07-21_12-07-58.jpg"
+        )
         with torch.no_grad():
             different_embedding = builder.feature_extractor(
                 different_tensor.unsqueeze(0).to(device)
@@ -92,14 +96,18 @@ if __name__ == "__main__":
         print(f"⚠️  Could not test different image: {e}")
         different_score = None
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("SUMMARY:")
-    print(f"  - Identical image (no preprocessing): {identical_score:.4f} (target: 1.0)")
+    print(
+        f"  - Identical image (no preprocessing): {identical_score:.4f} (target: 1.0)"
+    )
     print(f"  - Similar location WITH preprocessing: {max_score:.4f}")
     print(f"  - Similar location WITHOUT preprocessing: {score_no_prep:.4f}")
     if different_score is not None:
-        print(f"  - Different location (with preprocessing): {different_score:.4f} (target: <0.60)")
-    print("="*60)
+        print(
+            f"  - Different location (with preprocessing): {different_score:.4f} (target: <0.60)"
+        )
+    print("=" * 60)
 
     # Evaluation
     print("\nEVALUATION:")
@@ -129,5 +137,5 @@ if __name__ == "__main__":
         else:
             print("     ❌ Cannot distinguish locations (gap < 0.05)")
 
-    print("="*60)
+    print("=" * 60)
     print("\nVerification test completed!")
