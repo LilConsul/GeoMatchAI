@@ -1,8 +1,8 @@
 # GeoMatchAI 🌍🔍
 
-**High-Performance Visual Place Verification System**
+**High-Performance Visual Place Verification Library**
 
-A production-ready deep learning system that verifies whether a user is physically present at a specific landmark by comparing their selfie against reference imagery. Built with PyTorch, EfficientNet, and advanced computer vision techniques.
+A production-ready deep learning library that verifies whether a user is physically present at a specific landmark by comparing their selfie against reference imagery. Built with PyTorch, EfficientNet, and advanced computer vision techniques.
 
 [![Python](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9.1-red.svg)](https://pytorch.org/)
@@ -10,9 +10,9 @@ A production-ready deep learning system that verifies whether a user is physical
 
 ---
 
-## 🎯 Project Overview
+## 🎯 Overview
 
-GeoMatchAI solves the challenge of verifying a user's presence at a landmark (e.g., Wawel Castle) using deep learning-based visual recognition. The system handles occlusion from people in selfies, uses semantic segmentation to isolate landmark features, and achieves **87.5% accuracy** with **75.6ms inference time**.
+GeoMatchAI is a Python library that solves the challenge of verifying a user's presence at a landmark (e.g., Wawel Castle) using deep learning-based visual recognition. The system handles occlusion from people in selfies, uses semantic segmentation to isolate landmark features, and achieves **87.5% accuracy** with **75.6ms inference time**.
 
 ### Key Features
 
@@ -89,36 +89,35 @@ GeoMatchAI solves the challenge of verifying a user's presence at a landmark (e.
 
 - **Python 3.13** (required)
 - **CUDA 12.8** (optional, for GPU acceleration)
-- **UV package manager** (recommended)
+- **UV package manager** ([install here](https://docs.astral.sh/uv/getting-started/installation/))
 
-### Quick Install
+### Install from GitHub
+
+```powershell
+# Add GeoMatchAI to your project
+uv add git+https://github.com/yourusername/GeoMatchAI.git
+
+# For CPU-only PyTorch (smaller download, no GPU support)
+uv add git+https://github.com/yourusername/GeoMatchAI.git --index pytorch-cpu
+
+# For CUDA 12.8 (GPU acceleration - default)
+uv add git+https://github.com/yourusername/GeoMatchAI.git
+```
+
+### Development Installation
+
+If you want to contribute or modify the library:
 
 ```powershell
 # Clone the repository
 git clone https://github.com/yourusername/GeoMatchAI.git
 cd GeoMatchAI
 
-# Install dependencies with UV (automatically sets up virtual environment)
+# Install in editable mode with all dependencies
 uv sync
 
-# For CPU-only installation (modify pyproject.toml to use pytorch-cpu index)
-# Then run: uv sync
-```
-
-### Manual Installation
-
-```powershell
-# Create virtual environment
-uv venv
-
-# Activate virtual environment (Windows PowerShell)
-.venv\Scripts\Activate.ps1
-
-# Install dependencies
-uv add torch torchvision timm pillow requests mapillary aiohttp
-
-# Optional: Install plotting dependencies for analysis
-uv sync --group plot
+# Install with development dependencies (includes plotting tools)
+uv sync --all-groups
 ```
 
 ### Environment Variables
@@ -137,6 +136,7 @@ $env:MAPILLARY_API_KEY="YOUR_API_KEY_HERE"
 
 ```python
 import asyncio
+import torch
 from PIL import Image
 from geomatchai.gallery.gallery_builder import GalleryBuilder
 from geomatchai.verification.verifier import LandmarkVerifier
@@ -147,9 +147,9 @@ async def verify_landmark():
     fetcher = MapillaryFetcher(api_token="YOUR_MAPILLARY_TOKEN")
     lat, lon = 50.054404, 19.935730  # Wawel Castle coordinates
     
-    # 2. Build reference gallery (one-time setup)
+    # 2. Build reference gallery (one-time setup per landmark)
     builder = GalleryBuilder(
-        device="cuda",  # or "cpu"
+        device="cuda",  # or "cpu" for CPU-only
         model_type="timm",
         model_variant="tf_efficientnet_b4.ns_jft_in1k"  # RECOMMENDED
     )
@@ -159,7 +159,7 @@ async def verify_landmark():
         skip_preprocessing=True  # Gallery images are clean (no people)
     )
     
-    print(f"Gallery built: {gallery_embeddings.shape[0]} images")
+    print(f"✅ Gallery built: {gallery_embeddings.shape[0]} images, {gallery_embeddings.shape[1]}D embeddings")
     
     # 3. Initialize verifier
     verifier = LandmarkVerifier(
@@ -168,13 +168,12 @@ async def verify_landmark():
     )
     
     # 4. Verify user's selfie
-    user_selfie = Image.open("user_selfie.jpg")
+    user_selfie = Image.open("user_selfie.jpg").convert("RGB")
     
     # Preprocess (removes person, extracts landmark features)
     query_tensor = builder.preprocessor.preprocess_image(user_selfie)
     
     # Extract features
-    import torch
     with torch.no_grad():
         query_embedding = builder.feature_extractor(
             query_tensor.unsqueeze(0).to(builder.device)
@@ -184,12 +183,57 @@ async def verify_landmark():
     is_verified, similarity_score = verifier.verify(query_embedding)
     
     if is_verified:
-        print(f"✅ VERIFIED! Score: {similarity_score:.3f}")
+        print(f"✅ VERIFIED at landmark! Similarity score: {similarity_score:.3f}")
     else:
-        print(f"❌ REJECTED. Score: {similarity_score:.3f}")
+        print(f"❌ NOT VERIFIED. Similarity score: {similarity_score:.3f}")
 
 # Run
 asyncio.run(verify_landmark())
+```
+
+### Without Mapillary (Using Your Own Images)
+
+```python
+import asyncio
+import torch
+from PIL import Image
+from pathlib import Path
+from geomatchai.gallery.gallery_builder import GalleryBuilder
+from geomatchai.verification.verifier import LandmarkVerifier
+
+async def verify_with_local_gallery():
+    # 1. Build gallery from local images
+    builder = GalleryBuilder(
+        device="cuda",
+        model_type="timm",
+        model_variant="tf_efficientnet_b4.ns_jft_in1k"
+    )
+    
+    # Create async generator from local images
+    async def load_local_images():
+        gallery_dir = Path("path/to/gallery/images")
+        for img_path in gallery_dir.glob("*.jpg"):
+            yield Image.open(img_path).convert("RGB")
+    
+    gallery_embeddings = await builder.build_gallery(
+        load_local_images(),
+        skip_preprocessing=True
+    )
+    
+    # 2. Verify user image
+    verifier = LandmarkVerifier(gallery_embeddings, t_verify=0.65)
+    user_img = Image.open("user_photo.jpg").convert("RGB")
+    
+    query_tensor = builder.preprocessor.preprocess_image(user_img)
+    with torch.no_grad():
+        query_embedding = builder.feature_extractor(
+            query_tensor.unsqueeze(0).to(builder.device)
+        )
+    
+    is_verified, score = verifier.verify(query_embedding)
+    print(f"Result: {'✅ VERIFIED' if is_verified else '❌ REJECTED'} (score: {score:.3f})")
+
+asyncio.run(verify_with_local_gallery())
 ```
 
 ### Advanced Configuration
@@ -224,43 +268,64 @@ verifier = LandmarkVerifier(
 
 ### Best Configuration (Production Recommended)
 
-Based on comprehensive testing with 6 Wawel images and 2 unrelated images:
+Based on comprehensive testing with **6 Wawel Castle images** and **2 unrelated images**:
+- **Test configurations:** 64 (8 images × 4 models × 2 preprocessing modes)
+- **Test images:** 6 Wawel (positive examples) + 2 unrelated landmarks (negative examples)
 
 ```
 Model:              TIMM-NoisyStudent (tf_efficientnet_b4.ns_jft_in1k)
 Preprocessing:      ENABLED
 Threshold:          0.65
+Gallery Size:       198 images (Mapillary street-level imagery)
 ─────────────────────────────────────────────────────────────
-Accuracy:           87.5%
+Accuracy:           87.5% (7/8 correct)
 Discrimination Gap: 0.332 (33.2%)
 Avg Wawel Score:    0.783
 Avg Unrelated:      0.451
 Inference Time:     75.6ms (preprocessing + feature extraction + verification)
-Gallery Build:      ~2-5s for 200 images
+Gallery Build:      4.1-4.3s for 198 images
+Overall Accuracy:   73.44% (47/64 across all configs)
 ```
 
 ### Model Comparison
 
-| Model | Preprocessing | Accuracy | Discrimination Gap | Inference Time |
-|-------|---------------|----------|-------------------|----------------|
-| **TIMM-NoisyStudent** ⭐ | ✅ Enabled | **87.5%** | **33.2%** | **75.6ms** |
-| TIMM-Standard | ✅ Enabled | 87.5% | 33.2% | 77.7ms |
-| TorchVision-B4 | ❌ Disabled | 87.5% | 32.5% | 24.3ms |
-| TorchVision-B4 | ✅ Enabled | 75.0% | 8.3% | 90.2ms |
-| TIMM-AdvProp | ✅ Enabled | 37.5% | 13.7% | 78.5ms |
+All models tested with 8 images (6 Wawel + 2 unrelated), threshold = 0.65:
+
+| Model | Preprocessing | Accuracy | Discrimination Gap | Avg Wawel | Avg Unrelated | Inference Time |
+|-------|---------------|----------|-------------------|-----------|---------------|----------------|
+| **TIMM-NoisyStudent** ⭐ | ✅ Enabled | **87.5% (7/8)** | **0.332** | **0.783** | **0.451** | **75.6ms** |
+| TIMM-Standard | ✅ Enabled | 87.5% (7/8) | 0.332 | 0.783 | 0.451 | 77.7ms |
+| TIMM-NoisyStudent | ❌ Disabled | 87.5% (7/8) | 0.285 | 0.771 | 0.486 | 22.7ms |
+| TIMM-Standard | ❌ Disabled | 87.5% (7/8) | 0.285 | 0.771 | 0.486 | 23.4ms |
+| TorchVision-B4 | ❌ Disabled | 87.5% (7/8) | 0.325 | 0.834 | 0.509 | 24.3ms |
+| TorchVision-B4 | ✅ Enabled | 75.0% (6/8) | 0.083 | 0.909 | 0.826 | 90.2ms |
+| TIMM-AdvProp | ✅ Enabled | 37.5% (3/8) | 0.137 | 0.611 | 0.474 | 78.5ms |
+| TIMM-AdvProp | ❌ Disabled | 37.5% (3/8) | 0.042 | 0.578 | 0.536 | 22.2ms |
 
 **Key Insights:**
-- ⭐ **TIMM-NoisyStudent with preprocessing** achieves best balance of accuracy and discrimination
-- Preprocessing is **critical** for most models (except TorchVision which performs better without it)
-- Discrimination gap > 30% indicates excellent separation between matching/non-matching landmarks
+- ⭐ **TIMM-NoisyStudent with preprocessing** achieves best balance of accuracy (87.5%) and discrimination gap (33.2%)
+- **Without preprocessing**, TIMM models are faster (~23ms) with same accuracy but lower discrimination
+- **TorchVision-B4 performs WORSE with preprocessing** (75% vs 87.5%) - high scores but poor discrimination
+- **TIMM-AdvProp underperforms** significantly (37.5% accuracy) - not recommended
+- Discrimination gap > 0.30 indicates excellent separation between matching/non-matching landmarks
 
 ---
 
 ## 🧪 Testing
 
+> **Note:** Tests are included in the repository for development purposes. If you installed GeoMatchAI via `uv add`, you can use the library directly in your project without running these tests.
+
 ### Run Comprehensive Tests
 
 ```powershell
+# Clone and set up development environment
+git clone https://github.com/yourusername/GeoMatchAI.git
+cd GeoMatchAI
+uv sync
+
+# Set your Mapillary API key (required for tests that fetch images)
+$env:MAPILLARY_API_KEY="YOUR_API_KEY"
+
 # Run full test suite (tests all models, preprocessing modes, timing)
 uv run python tests/test_comprehensive.py
 
@@ -395,9 +460,14 @@ builder = GalleryBuilder(device="cpu")
 builder = GalleryBuilder(device="cuda")
 ```
 
-**Performance Impact:**
-- GPU: ~75ms inference
-- CPU: ~200-500ms inference (depending on CPU)
+**Performance Impact (TIMM-NoisyStudent with preprocessing):**
+- **GPU (CUDA 12.8):** 75.6ms inference (57ms preprocessing + 14ms feature extraction + 1ms verification)
+- **Gallery Build:** 4.1-4.3s for 198 images (batch processing)
+- **CPU:** ~200-500ms inference (depending on CPU, not tested)
+
+**Speed Comparison:**
+- With preprocessing: ~75ms (better accuracy, 87.5%)
+- Without preprocessing: ~23ms (faster but lower discrimination, 28.5% gap)
 
 ---
 
@@ -505,7 +575,7 @@ If you use GeoMatchAI in your research, please cite:
 
 ```bibtex
 @software{geomatchai2025,
-  title={GeoMatchAI: High-Performance Visual Place Verification System},
+  title={GeoMatchAI: High-Performance Visual Place Verification Library},
   author={Your Name},
   year={2025},
   url={https://github.com/yourusername/GeoMatchAI}
