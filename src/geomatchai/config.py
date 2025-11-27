@@ -81,6 +81,21 @@ class FetcherConfig:
     MAPILLARY_API_KEY_ENV: str = "MAPILLARY_API_KEY"
 
 
+@dataclass
+class RuntimeConfig:
+    """Configuration for runtime behavior (logging, device, etc.)."""
+
+    # Logging
+    DEFAULT_LOG_LEVEL: str = "INFO"
+    VALID_LOG_LEVELS: tuple[str, ...] = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+    LOG_LEVEL_ENV: str = "LOG_LEVEL"
+
+    # Device
+    DEFAULT_DEVICE: str = "auto"  # "auto", "cuda", or "cpu"
+    DEVICE_ENV: str = "DEVICE"
+    CUDA_VISIBLE_DEVICES_ENV: str = "CUDA_VISIBLE_DEVICES"
+
+
 class Config:
     """
     Main configuration class aggregating all settings.
@@ -95,6 +110,7 @@ class Config:
         self.verification = VerificationConfig()
         self.gallery = GalleryConfig()
         self.fetcher = FetcherConfig()
+        self.runtime = RuntimeConfig()
 
     def get_mapillary_api_key(self) -> str | None:
         """
@@ -104,6 +120,36 @@ class Config:
             API key if set, None otherwise
         """
         return os.getenv(self.fetcher.MAPILLARY_API_KEY_ENV)
+
+    def get_log_level(self) -> str:
+        """
+        Get log level from environment or use default.
+
+        Returns:
+            Log level string (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        """
+        level = os.getenv(self.runtime.LOG_LEVEL_ENV, self.runtime.DEFAULT_LOG_LEVEL).upper()
+        return level if level in self.runtime.VALID_LOG_LEVELS else self.runtime.DEFAULT_LOG_LEVEL
+
+    def get_device(self) -> str:
+        """
+        Get device configuration from environment or use default.
+
+        Returns:
+            Device string ("auto", "cuda", or "cpu")
+        """
+        device = os.getenv(self.runtime.DEVICE_ENV, self.runtime.DEFAULT_DEVICE).lower()
+        valid_devices = ("auto", "cuda", "cpu")
+        return device if device in valid_devices else self.runtime.DEFAULT_DEVICE
+
+    def get_cuda_visible_devices(self) -> str | None:
+        """
+        Get CUDA_VISIBLE_DEVICES from environment.
+
+        Returns:
+            CUDA device IDs if set, None otherwise
+        """
+        return os.getenv(self.runtime.CUDA_VISIBLE_DEVICES_ENV)
 
     def validate(self) -> list[str]:
         """

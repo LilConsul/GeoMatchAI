@@ -42,6 +42,12 @@ class FetcherError(GeoMatchAIError):
     pass
 
 
+class MapillaryFetcherError(FetcherError):
+    """Exception raised for errors in the Mapillary fetcher."""
+
+    pass
+
+
 class ConfigurationError(GeoMatchAIError):
     """Exception raised for invalid configuration."""
 

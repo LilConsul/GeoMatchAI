@@ -11,6 +11,7 @@ from collections.abc import AsyncGenerator
 import torch
 from PIL import Image
 
+from ..config import config
 from ..preprocessing.preprocessor import Preprocessor
 
 logger = logging.getLogger(__name__)
@@ -20,23 +21,26 @@ class GalleryBuilder:
     def __init__(
         self,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
-        model_type: str = "timm",
-        model_variant: str = "tf_efficientnet_b4.ns_jft_in1k",
+        model_type: str = config.model.DEFAULT_MODEL_TYPE,
+        model_variant: str | None = None,
     ):
         """
         Initialize GalleryBuilder with configurable feature extractor.
 
         Args:
             device: Device to run on ('cuda' or 'cpu')
-            model_type: Type of model to use:
+            model_type: Type of model to use (defaults to config.model.DEFAULT_MODEL_TYPE):
                 - 'torchvision': Standard EfficientNet-B4 from torchvision
                 - 'timm': Better pre-trained EfficientNet from timm library
                 - 'timm_ensemble': Ensemble of multiple timm models (slower but better)
-            model_variant: Specific variant for timm models:
-                - 'tf_efficientnet_b4.ns_jft_in1k': NoisyStudent (RECOMMENDED for timm)
-                - 'tf_efficientnet_b4.ap_in1k': AdvProp
-                - 'tf_efficientnet_b4': Standard
-                - None: Use default for selected model_type
+            model_variant: Specific variant for the selected model_type
+                (defaults based on model_type from config):
+                For 'timm':
+                    - 'tf_efficientnet_b4.ns_jft_in1k': NoisyStudent (RECOMMENDED)
+                    - 'tf_efficientnet_b4.ap_in1k': AdvProp
+                    - 'tf_efficientnet_b4': Standard
+                For 'torchvision':
+                    - 'b4', 'b5', etc.
         """
         self.device = device
         self.model_type = model_type
@@ -46,7 +50,7 @@ class GalleryBuilder:
         if model_type == "torchvision":
             from ..models.efficientnet import EfficientNetFeatureExtractor
 
-            variant = model_variant or "b4"
+            variant = model_variant or config.model.DEFAULT_TORCHVISION_VARIANT
             self.feature_extractor = EfficientNetFeatureExtractor(model_variant=variant).to(
                 self.device
             )
@@ -55,7 +59,7 @@ class GalleryBuilder:
         elif model_type == "timm":
             from ..models.efficientnet_timm import EfficientNetFeatureExtractor
 
-            variant = model_variant or "tf_efficientnet_b4.ns_jft_in1k"
+            variant = model_variant or config.model.DEFAULT_TIMM_VARIANT
             self.feature_extractor = EfficientNetFeatureExtractor(model_variant=variant).to(
                 self.device
             )
@@ -76,7 +80,7 @@ class GalleryBuilder:
     async def build_gallery(
         self,
         image_generator: AsyncGenerator[Image.Image],
-        batch_size: int = 32,
+        batch_size: int = config.gallery.DEFAULT_BATCH_SIZE,
         skip_preprocessing: bool = False,
     ) -> torch.Tensor:
         """
@@ -84,7 +88,8 @@ class GalleryBuilder:
 
         Args:
             image_generator: Async generator yielding reference images
-            batch_size: Maximum batch size to prevent OOM (default 32)
+            batch_size: Maximum batch size to prevent OOM
+                       (defaults to config.gallery.DEFAULT_BATCH_SIZE)
             skip_preprocessing: Skip person removal for clean gallery images (default False)
                                Set to True if gallery photos don't have people - preserves features!
 

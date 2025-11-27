@@ -16,7 +16,10 @@ __all__ = [
     "LandmarkVerifier",
     "EfficientNetFeatureExtractor",
     "MapillaryFetcher",
+    "MapillaryFetcherError",
     "BaseFetcher",
+    "config",
+    "Config",
 ]
 
 # Configure default logging
@@ -33,6 +36,7 @@ from geomatchai.exceptions import (
     FetcherError,
     GalleryBuildError,
     GeoMatchAIError,
+    MapillaryFetcherError,
     PreprocessingError,
     VerificationError,
 )

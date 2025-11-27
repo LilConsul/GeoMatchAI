@@ -16,16 +16,12 @@ from torchvision.models.segmentation import (
     deeplabv3_resnet101,
 )
 
+from ..config import config
+
 logger = logging.getLogger(__name__)
 
 
 class Preprocessor:
-    # Constants for validation
-    MAX_IMAGE_SIZE_MB = 50
-    MAX_DIMENSION = 10000
-    MIN_DIMENSION = 100
-    TARGET_SIZE = (520, 520)
-
     def __init__(self, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
         self.device = device
         logger.info(f"Initializing Preprocessor on device: {device}")
@@ -35,20 +31,17 @@ class Preprocessor:
         self.model.eval()
         logger.info("DeepLabV3 segmentation model loaded successfully")
 
-        # COCO class index for "person" is 15 (0-indexed)
-        self.person_class_idx = 15
-
-        # Transforms for input image (resize to 520x520 as per DeepLabV3 input)
+        # Transforms for input image (resize to target size as per DeepLabV3 input)
         self.transform = T.Compose(
             [
-                T.Resize(self.TARGET_SIZE),
+                T.Resize(config.preprocessing.TARGET_SIZE),
                 T.ToTensor(),
-                T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                T.Normalize(mean=config.preprocessing.MEAN, std=config.preprocessing.STD),
             ]
         )
 
         # Separate normalize transform for output consistency
-        self.normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        self.normalize = T.Normalize(mean=config.preprocessing.MEAN, std=config.preprocessing.STD)
 
     def _validate_image_dimensions(self, image: Image.Image) -> None:
         """
@@ -60,14 +53,22 @@ class Preprocessor:
         Raises:
             ValueError: If dimensions are invalid.
         """
-        if image.width > self.MAX_DIMENSION or image.height > self.MAX_DIMENSION:
+        if (
+            image.width > config.preprocessing.MAX_DIMENSION
+            or image.height > config.preprocessing.MAX_DIMENSION
+        ):
             raise ValueError(
-                f"Image dimensions too large: {image.width}x{image.height} (max {self.MAX_DIMENSION}x{self.MAX_DIMENSION})"
+                f"Image dimensions too large: {image.width}x{image.height} "
+                f"(max {config.preprocessing.MAX_DIMENSION}x{config.preprocessing.MAX_DIMENSION})"
             )
 
-        if image.width < self.MIN_DIMENSION or image.height < self.MIN_DIMENSION:
+        if (
+            image.width < config.preprocessing.MIN_DIMENSION
+            or image.height < config.preprocessing.MIN_DIMENSION
+        ):
             raise ValueError(
-                f"Image dimensions too small: {image.width}x{image.height} (min {self.MIN_DIMENSION}x{self.MIN_DIMENSION})"
+                f"Image dimensions too small: {image.width}x{image.height} "
+                f"(min {config.preprocessing.MIN_DIMENSION}x{config.preprocessing.MIN_DIMENSION})"
             )
 
     def segment_person(self, image: Image.Image) -> torch.Tensor:
@@ -86,7 +87,7 @@ class Preprocessor:
             # Get the predicted class for each pixel
             pred = torch.argmax(output.squeeze(), dim=0)
             # Create binary mask for person class
-            mask = (pred == self.person_class_idx).float()
+            mask = (pred == config.preprocessing.PERSON_CLASS_IDX).float()
         return mask
 
     def apply_mask(self, image: Image.Image, mask: torch.Tensor) -> torch.Tensor:
@@ -104,7 +105,7 @@ class Preprocessor:
             Cleaned image tensor of shape (3, H, W) with person removed.
         """
         # Resize and convert to tensor
-        resized_image = T.Resize(self.TARGET_SIZE)(image)
+        resized_image = T.Resize(config.preprocessing.TARGET_SIZE)(image)
         image_tensor = T.ToTensor()(resized_image).to(self.device)
 
         # Calculate per-channel mean (better color preservation than global mean)
@@ -133,7 +134,8 @@ class Preprocessor:
             image: PIL Image of the user's selfie.
 
         Returns:
-            Pre-processed image tensor (3, 520, 520) with person removed.
+            Pre-processed image tensor (3, H, W) with person removed,
+            where H, W are determined by config.preprocessing.TARGET_SIZE.
 
         Raises:
             ValueError: If image cannot be processed.
@@ -152,7 +154,8 @@ class Preprocessor:
             image_path: Path to the user's selfie image.
 
         Returns:
-            Pre-processed image tensor (3, 520, 520) with person removed.
+            Pre-processed image tensor (3, H, W) with person removed,
+            where H, W are determined by config.preprocessing.TARGET_SIZE.
 
         Raises:
             ValueError: If image cannot be loaded or processed.
@@ -164,9 +167,11 @@ class Preprocessor:
 
         # Security: Validate file size to prevent OOM attacks
         file_size = os.path.getsize(image_path)
-        if file_size > self.MAX_IMAGE_SIZE_MB * 1024 * 1024:  # 50MB limit
+        max_size_bytes = config.preprocessing.MAX_IMAGE_SIZE_MB * 1024 * 1024
+        if file_size > max_size_bytes:
             raise ValueError(
-                f"Image too large: {file_size / (1024 * 1024):.1f}MB (max {self.MAX_IMAGE_SIZE_MB}MB)"
+                f"Image too large: {file_size / (1024 * 1024):.1f}MB "
+                f"(max {config.preprocessing.MAX_IMAGE_SIZE_MB}MB)"
             )
 
         if file_size == 0:
@@ -187,6 +192,7 @@ class Preprocessor:
             image: PIL Image to transform.
 
         Returns:
-            Transformed tensor (3, 520, 520).
+            Transformed tensor (3, H, W) where H, W are determined by
+            config.preprocessing.TARGET_SIZE.
         """
         return self.transform(image)

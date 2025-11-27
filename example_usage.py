@@ -10,7 +10,6 @@ This script demonstrates the full pipeline:
 
 import asyncio
 import logging
-import os
 from pathlib import Path
 
 from geomatchai import (
@@ -31,10 +30,18 @@ logger = logging.getLogger(__name__)
 async def main():
     """Main function demonstrating GeoMatchAI usage."""
 
+    # Validate configuration
+    validation_errors = config.validate()
+    if validation_errors:
+        logger.error("Configuration validation failed:")
+        for error in validation_errors:
+            logger.error(f"  - {error}")
+        return
+
     # Configuration
     LANDMARK_LAT = 50.054404  # Wawel Castle latitude
     LANDMARK_LON = 19.935730  # Wawel Castle longitude
-    MAPILLARY_API_KEY = os.getenv("MAPILLARY_API_KEY")
+    MAPILLARY_API_KEY = config.get_mapillary_api_key()
 
     if not MAPILLARY_API_KEY:
         logger.error("MAPILLARY_API_KEY environment variable not set!")
@@ -43,15 +50,19 @@ async def main():
 
     logger.info("Starting GeoMatchAI pipeline...")
     logger.info(f"Target location: ({LANDMARK_LAT}, {LANDMARK_LON})")
+    logger.info(f"Using config defaults:")
+    logger.info(f"  - Model: {config.model.DEFAULT_MODEL_TYPE}/{config.model.DEFAULT_TIMM_VARIANT}")
+    logger.info(f"  - Verification threshold: {config.verification.DEFAULT_THRESHOLD}")
+    logger.info(f"  - Search radius: {config.fetcher.DEFAULT_SEARCH_RADIUS}m")
+    logger.info(f"  - Max images: {config.fetcher.DEFAULT_NUM_IMAGES}")
 
     # Step 1: Initialize components
     logger.info("\n=== Step 1: Initializing Components ===")
-    fetcher = MapillaryFetcher(api_token=MAPILLARY_API_KEY, request_timeout=30.0, max_retries=3)
+    # All parameters use config defaults
+    fetcher = MapillaryFetcher(api_token=MAPILLARY_API_KEY)
 
-    builder = GalleryBuilder(
-        model_type="timm",
-        model_variant="tf_efficientnet_b4.ns_jft_in1k",  # NoisyStudent
-    )
+    # Model type and variant use config defaults (timm + NoisyStudent)
+    builder = GalleryBuilder()
 
     preprocessor = Preprocessor()
 
@@ -60,13 +71,12 @@ async def main():
     logger.info(f"Fetching images within {config.fetcher.DEFAULT_SEARCH_RADIUS}m radius...")
 
     try:
-        image_generator = fetcher.get_images(
-            LANDMARK_LAT, LANDMARK_LON, distance=50.0, num_images=20
-        )
+        # distance and num_images use config defaults
+        image_generator = fetcher.get_images(LANDMARK_LAT, LANDMARK_LON)
 
+        # batch_size uses config default
         gallery_embeddings = await builder.build_gallery(
             image_generator,
-            batch_size=config.gallery.DEFAULT_BATCH_SIZE,
             skip_preprocessing=True,  # Gallery images are clean (no people)
         )
 
@@ -78,9 +88,8 @@ async def main():
 
     # Step 3: Initialize verifier
     logger.info("\n=== Step 3: Initializing Verifier ===")
-    verifier = LandmarkVerifier(
-        gallery_embeddings=gallery_embeddings, t_verify=config.verification.DEFAULT_THRESHOLD
-    )
+    # t_verify uses config default
+    verifier = LandmarkVerifier(gallery_embeddings=gallery_embeddings)
     logger.info(f"Verifier ready with threshold: {config.verification.DEFAULT_THRESHOLD}")
 
     # Step 4: Verify user selfie

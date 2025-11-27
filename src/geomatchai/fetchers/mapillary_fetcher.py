@@ -15,15 +15,11 @@ import aiohttp
 import mapillary as mly
 from PIL import Image
 
-from geomatchai.fetchers.base_fetcher import BaseFetcher
+from ..config import config
+from ..exceptions import MapillaryFetcherError
+from .base_fetcher import BaseFetcher
 
 logger = logging.getLogger(__name__)
-
-
-class MapillaryFetcherError(Exception):
-    """Exception raised for errors in the Mapillary fetcher."""
-
-    pass
 
 
 class MapillaryFetcher(BaseFetcher):
@@ -36,8 +32,10 @@ class MapillaryFetcher(BaseFetcher):
     Args:
         api_token: Your Mapillary client access token from
                    https://www.mapillary.com/dashboard/developers
-        request_timeout: Total timeout for HTTP requests in seconds (default: 30)
-        max_retries: Maximum number of retries for failed downloads (default: 3)
+        request_timeout: Total timeout for HTTP requests in seconds
+                        (defaults to config.fetcher.DEFAULT_REQUEST_TIMEOUT)
+        max_retries: Maximum number of retries for failed downloads
+                    (defaults to config.fetcher.DEFAULT_MAX_RETRIES)
 
     Example:
         fetcher = MapillaryFetcher(api_token="your_token")
@@ -46,7 +44,12 @@ class MapillaryFetcher(BaseFetcher):
             print(f"Downloaded image: {img.size}")
     """
 
-    def __init__(self, api_token: str, request_timeout: float = 30.0, max_retries: int = 3):
+    def __init__(
+        self,
+        api_token: str,
+        request_timeout: float = config.fetcher.DEFAULT_REQUEST_TIMEOUT,
+        max_retries: int = config.fetcher.DEFAULT_MAX_RETRIES,
+    ):
         if not api_token:
             raise ValueError("api_token cannot be empty")
 
@@ -65,8 +68,8 @@ class MapillaryFetcher(BaseFetcher):
         lat: float,
         lon: float,
         *,
-        distance: float = 50.0,
-        num_images: int = 20,
+        distance: float = config.fetcher.DEFAULT_SEARCH_RADIUS,
+        num_images: int = config.fetcher.DEFAULT_NUM_IMAGES,
     ) -> AsyncGenerator[Image.Image]:
         """
         Yield Mapillary images near the provided coordinate as they download.
@@ -77,8 +80,10 @@ class MapillaryFetcher(BaseFetcher):
         Args:
             lat: Latitude of the target location
             lon: Longitude of the target location
-            distance: Search radius in meters (default: 50.0)
-            num_images: Maximum number of images to fetch (default: 20)
+            distance: Search radius in meters
+                     (defaults to config.fetcher.DEFAULT_SEARCH_RADIUS)
+            num_images: Maximum number of images to fetch
+                       (defaults to config.fetcher.DEFAULT_NUM_IMAGES)
 
         Yields:
             PIL.Image: Downloaded images as they become available
@@ -123,7 +128,7 @@ class MapillaryFetcher(BaseFetcher):
                     loop.run_in_executor(
                         executor,
                         lambda img_id=img_id: self.interface.image_thumbnail(
-                            img_id, resolution=1024
+                            img_id, resolution=config.fetcher.DEFAULT_THUMBNAIL_RESOLUTION
                         ),
                     )
                     for img_id in image_ids

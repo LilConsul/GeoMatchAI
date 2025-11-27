@@ -10,6 +10,8 @@ import logging
 import torch
 import torch.nn.functional as F
 
+from ..config import config
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,16 +29,23 @@ class LandmarkVerifier:
     Reference: tests/test_weight_optimization.py
     """
 
-    def __init__(self, gallery_embeddings: torch.Tensor, t_verify: float = 0.65):
+    def __init__(
+        self,
+        gallery_embeddings: torch.Tensor,
+        t_verify: float = config.verification.DEFAULT_THRESHOLD,
+    ):
         """
         Initialize the verifier with reference gallery and threshold.
 
         Args:
             gallery_embeddings: Reference gallery matrix of shape (N, D)
-            t_verify: Verification threshold (default 0.65 - optimized for TIMM-NoisyStudent)
-                     Recommended range: 0.55-0.70
-                     - Lower threshold (0.55): Stricter matching, fewer false positives
-                     - Higher threshold (0.70): More lenient, fewer false negatives
+            t_verify: Verification threshold (defaults to config.verification.DEFAULT_THRESHOLD)
+                     Recommended range: [config.verification.MIN_THRESHOLD,
+                                        config.verification.MAX_THRESHOLD]
+                     - Lower threshold (config.verification.STRICT_THRESHOLD):
+                       Stricter matching, fewer false positives
+                     - Higher threshold (config.verification.LENIENT_THRESHOLD):
+                       More lenient, fewer false negatives
         """
         self.gallery = gallery_embeddings
         self.t_verify = t_verify
