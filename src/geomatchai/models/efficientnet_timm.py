@@ -1,6 +1,16 @@
+"""
+EfficientNet feature extractors using TIMM library.
+
+Provides better pre-trained weights than torchvision for landmark recognition.
+"""
+import logging
+
 import timm
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+logger = logging.getLogger(__name__)
 
 
 class EfficientNetFeatureExtractor(nn.Module):
@@ -41,7 +51,7 @@ class EfficientNetFeatureExtractor(nn.Module):
         # Get feature dimension from model
         self.feature_dim = self.model.num_features  # 1792 for B4
 
-        print(f"Loaded {model_variant} with {self.feature_dim}D features")
+        logger.info(f"Loaded {model_variant} with {self.feature_dim}D features")
 
     def forward(self, x):
         """

@@ -1,3 +1,10 @@
+"""
+Image preprocessing module for person segmentation and removal.
+
+Uses semantic segmentation (DeepLabV3) to detect and remove people from images,
+allowing the feature extractor to focus on landmark features.
+"""
+import logging
 import os
 
 import torch
@@ -7,6 +14,8 @@ from torchvision.models.segmentation import (
     DeepLabV3_ResNet101_Weights,
     deeplabv3_resnet101,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class Preprocessor:
@@ -18,10 +27,12 @@ class Preprocessor:
 
     def __init__(self, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
         self.device = device
+        logger.info(f"Initializing Preprocessor on device: {device}")
         self.model = deeplabv3_resnet101(
             weights=DeepLabV3_ResNet101_Weights.COCO_WITH_VOC_LABELS_V1, progress=True
         ).to(self.device)
         self.model.eval()
+        logger.info("DeepLabV3 segmentation model loaded successfully")
 
         # COCO class index for "person" is 15 (0-indexed)
         self.person_class_idx = 15

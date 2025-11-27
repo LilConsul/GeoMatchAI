@@ -1,9 +1,18 @@
+"""
+Gallery builder for creating reference image embeddings.
+
+This module builds a gallery of reference embeddings from a set of images
+that can be used for landmark verification.
+"""
+import logging
 from typing import AsyncGenerator
 
 import torch
 from PIL import Image
 
 from ..preprocessing.preprocessor import Preprocessor
+
+logger = logging.getLogger(__name__)
 
 
 class GalleryBuilder:
@@ -39,7 +48,7 @@ class GalleryBuilder:
             self.feature_extractor = EfficientNetFeatureExtractor(
                 model_variant=variant
             ).to(self.device)
-            print(f"Using torchvision EfficientNet-{variant}")
+            logger.info(f"Using torchvision EfficientNet-{variant}")
 
         elif model_type == "timm":
             from ..models.efficientnet_timm import EfficientNetFeatureExtractor
@@ -47,12 +56,12 @@ class GalleryBuilder:
             self.feature_extractor = EfficientNetFeatureExtractor(
                 model_variant=variant
             ).to(self.device)
-            print(f"Using timm model: {variant}")
+            logger.info(f"Using timm model: {variant}")
 
         elif model_type == "timm_ensemble":
             from ..models.efficientnet_timm import LandmarkEfficientNet
             self.feature_extractor = LandmarkEfficientNet().to(self.device)
-            print("Using timm ensemble (NoisyStudent + AdvProp)")
+            logger.info("Using timm ensemble (NoisyStudent + AdvProp)")
 
         else:
             raise ValueError(
@@ -109,11 +118,15 @@ class GalleryBuilder:
             embeddings = self._process_batch(processed_images)
             all_embeddings.append(embeddings)  # Move to CPU to save GPU memory
             total_processed += batch_size_here
+            logger.debug(f"Processed final batch: {batch_size_here} images")
 
         if not all_embeddings:
+            logger.error("No images could be processed successfully")
             raise ValueError("No images could be processed successfully")
 
-        return torch.cat(all_embeddings, dim=0).to(self.device)  # Shape: (N, D)
+        gallery_tensor = torch.cat(all_embeddings, dim=0).to(self.device)  # Shape: (N, D)
+        logger.info(f"Gallery built successfully: {gallery_tensor.shape[0]} images, {gallery_tensor.shape[1]}D features")
+        return gallery_tensor
 
     def _process_batch(self, batch_images: list[torch.Tensor]) -> torch.Tensor:
         """

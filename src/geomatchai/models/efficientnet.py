@@ -1,3 +1,8 @@
+"""
+EfficientNet feature extractors using TorchVision.
+
+Standard EfficientNet-B4 implementation from torchvision with ImageNet weights.
+"""
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import EfficientNet_B4_Weights, efficientnet_b4

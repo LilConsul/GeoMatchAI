@@ -1,7 +1,16 @@
+"""
+Landmark verification module using cosine similarity.
+
+Compares query embeddings against a reference gallery to verify
+if a user is at a specific landmark location.
+"""
+import logging
 from typing import Tuple
 
 import torch
 import torch.nn.functional as F
+
+logger = logging.getLogger(__name__)
 
 
 class LandmarkVerifier:
@@ -66,6 +75,11 @@ class LandmarkVerifier:
 
         # Decision based on threshold
         is_verified = max_score > self.t_verify
+
+        logger.debug(
+            f"Verification result: {'VERIFIED' if is_verified else 'REJECTED'} "
+            f"(score: {max_score:.4f}, threshold: {self.t_verify})"
+        )
 
         # Clean up GPU memory
         if torch.cuda.is_available():

@@ -53,7 +53,8 @@ skip_gitignore = true
 known_first_party = ["geomatchai", "tests"]
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py313"
+line-length = 100
 indent-width = 4
 
 [tool.ruff.lint]
@@ -64,12 +65,55 @@ select = [
     "I", # isort
     "C", # flake8-comprehensions
     "B", # flake8-bugbear
+    "UP", # pyupgrade
+    "N", # pep8-naming
+    "ANN", # flake8-annotations
 ]
 ignore = [
-    "E501", # line too long, handled by black
+    "E501", # line too long
     "B008", # do not perform function calls in argument defaults
     "C901", # complexity
+    "ANN101", # missing type annotation for self
+    "ANN102", # missing type annotation for cls
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN"]  # Don't require annotations in tests
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = [
+    "--verbose",
+    "--cov=geomatchai",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_optional = true
+
+[[tool.mypy.overrides]]
+module = [
+    "timm.*",
+    "mapillary.*",
+    "torchvision.*",
+]
+ignore_missing_imports = true
 
 [dependency-groups]
 plot = [
