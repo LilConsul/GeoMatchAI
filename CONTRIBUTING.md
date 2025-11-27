@@ -92,20 +92,20 @@ Example:
 def my_function(param1: str, param2: int) -> bool:
     """
     Short description of the function.
-    
+
     Longer description if needed, explaining the purpose
     and behavior of the function.
-    
+
     Args:
         param1: Description of param1
         param2: Description of param2
-        
+
     Returns:
         Description of return value
-        
+
     Raises:
         ValueError: When input is invalid
-        
+
     Example:
         >>> my_function("test", 42)
         True
@@ -258,4 +258,3 @@ docs: update installation instructions
 ## License
 
 By contributing to GeoMatchAI, you agree that your contributions will be licensed under the MIT License.
-

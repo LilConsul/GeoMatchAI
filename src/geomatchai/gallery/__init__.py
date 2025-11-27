@@ -3,4 +3,3 @@
 from geomatchai.gallery.gallery_builder import GalleryBuilder
 
 __all__ = ["GalleryBuilder"]
-

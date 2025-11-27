@@ -4,6 +4,7 @@ Image preprocessing module for person segmentation and removal.
 Uses semantic segmentation (DeepLabV3) to detect and remove people from images,
 allowing the feature extractor to focus on landmark features.
 """
+
 import logging
 import os
 
@@ -119,9 +120,7 @@ class Preprocessor:
         mask_expanded = mask.unsqueeze(0).repeat(3, 1, 1)
 
         # Replace person pixels (mask=1) with mean, keep background (mask=0) as original
-        cleaned_tensor = torch.where(
-            mask_expanded.bool(), mean_filled_tensor, image_tensor
-        )
+        cleaned_tensor = torch.where(mask_expanded.bool(), mean_filled_tensor, image_tensor)
 
         # Apply normalization to match the transform output format
         return self.normalize(cleaned_tensor)
@@ -191,5 +190,3 @@ class Preprocessor:
             Transformed tensor (3, 520, 520).
         """
         return self.transform(image)
-
-

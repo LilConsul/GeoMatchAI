@@ -3,6 +3,7 @@ EfficientNet feature extractors using TIMM library.
 
 Provides better pre-trained weights than torchvision for landmark recognition.
 """
+
 import logging
 
 import timm
@@ -79,12 +80,8 @@ class LandmarkEfficientNet(nn.Module):
         # Option 1: Use multiple models and average embeddings
         self.models = nn.ModuleList(
             [
-                timm.create_model(
-                    "tf_efficientnet_b4.ns_jft_in1k", pretrained=True, num_classes=0
-                ),
-                timm.create_model(
-                    "tf_efficientnet_b4.ap_in1k", pretrained=True, num_classes=0
-                ),
+                timm.create_model("tf_efficientnet_b4.ns_jft_in1k", pretrained=True, num_classes=0),
+                timm.create_model("tf_efficientnet_b4.ap_in1k", pretrained=True, num_classes=0),
             ]
         )
 

@@ -3,9 +3,9 @@ Configuration management for GeoMatchAI.
 
 Centralizes all configurable parameters, constants, and environment-based settings.
 """
+
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -96,7 +96,7 @@ class Config:
         self.gallery = GalleryConfig()
         self.fetcher = FetcherConfig()
 
-    def get_mapillary_api_key(self) -> Optional[str]:
+    def get_mapillary_api_key(self) -> str | None:
         """
         Get Mapillary API key from environment.
 
@@ -115,9 +115,11 @@ class Config:
         errors = []
 
         # Validate thresholds
-        if not (self.verification.MIN_THRESHOLD <=
-                self.verification.DEFAULT_THRESHOLD <=
-                self.verification.MAX_THRESHOLD):
+        if not (
+            self.verification.MIN_THRESHOLD
+            <= self.verification.DEFAULT_THRESHOLD
+            <= self.verification.MAX_THRESHOLD
+        ):
             errors.append(
                 f"Default threshold {self.verification.DEFAULT_THRESHOLD} "
                 f"outside valid range [{self.verification.MIN_THRESHOLD}, "
@@ -125,9 +127,11 @@ class Config:
             )
 
         # Validate batch sizes
-        if not (self.gallery.MIN_BATCH_SIZE <=
-                self.gallery.DEFAULT_BATCH_SIZE <=
-                self.gallery.MAX_BATCH_SIZE):
+        if not (
+            self.gallery.MIN_BATCH_SIZE
+            <= self.gallery.DEFAULT_BATCH_SIZE
+            <= self.gallery.MAX_BATCH_SIZE
+        ):
             errors.append(
                 f"Default batch size {self.gallery.DEFAULT_BATCH_SIZE} "
                 f"outside valid range [{self.gallery.MIN_BATCH_SIZE}, "
@@ -136,13 +140,10 @@ class Config:
 
         # Validate image dimensions
         if self.preprocessing.MIN_DIMENSION >= self.preprocessing.MAX_DIMENSION:
-            errors.append(
-                "MIN_DIMENSION must be less than MAX_DIMENSION"
-            )
+            errors.append("MIN_DIMENSION must be less than MAX_DIMENSION")
 
         return errors
 
 
 # Global config instance
 config = Config()
-

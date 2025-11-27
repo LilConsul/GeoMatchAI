@@ -4,8 +4,8 @@ Landmark verification module using cosine similarity.
 Compares query embeddings against a reference gallery to verify
 if a user is at a specific landmark location.
 """
+
 import logging
-from typing import Tuple
 
 import torch
 import torch.nn.functional as F
@@ -41,7 +41,7 @@ class LandmarkVerifier:
         self.gallery = gallery_embeddings
         self.t_verify = t_verify
 
-    def verify(self, query_embedding: torch.Tensor) -> Tuple[bool, float]:
+    def verify(self, query_embedding: torch.Tensor) -> tuple[bool, float]:
         """
         Verify a query embedding against the reference gallery.
 

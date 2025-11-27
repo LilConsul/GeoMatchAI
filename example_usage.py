@@ -7,6 +7,7 @@ This script demonstrates the full pipeline:
 3. Build a gallery of embeddings
 4. Verify a user's selfie against the gallery
 """
+
 import asyncio
 import logging
 import os
@@ -22,8 +23,7 @@ from geomatchai import (
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -46,15 +46,11 @@ async def main():
 
     # Step 1: Initialize components
     logger.info("\n=== Step 1: Initializing Components ===")
-    fetcher = MapillaryFetcher(
-        api_token=MAPILLARY_API_KEY,
-        request_timeout=30.0,
-        max_retries=3
-    )
+    fetcher = MapillaryFetcher(api_token=MAPILLARY_API_KEY, request_timeout=30.0, max_retries=3)
 
     builder = GalleryBuilder(
         model_type="timm",
-        model_variant="tf_efficientnet_b4.ns_jft_in1k"  # NoisyStudent
+        model_variant="tf_efficientnet_b4.ns_jft_in1k",  # NoisyStudent
     )
 
     preprocessor = Preprocessor()
@@ -65,16 +61,13 @@ async def main():
 
     try:
         image_generator = fetcher.get_images(
-            LANDMARK_LAT,
-            LANDMARK_LON,
-            distance=50.0,
-            num_images=20
+            LANDMARK_LAT, LANDMARK_LON, distance=50.0, num_images=20
         )
 
         gallery_embeddings = await builder.build_gallery(
             image_generator,
             batch_size=config.gallery.DEFAULT_BATCH_SIZE,
-            skip_preprocessing=True  # Gallery images are clean (no people)
+            skip_preprocessing=True,  # Gallery images are clean (no people)
         )
 
         logger.info(f"Gallery built: {gallery_embeddings.shape}")
@@ -86,8 +79,7 @@ async def main():
     # Step 3: Initialize verifier
     logger.info("\n=== Step 3: Initializing Verifier ===")
     verifier = LandmarkVerifier(
-        gallery_embeddings=gallery_embeddings,
-        t_verify=config.verification.DEFAULT_THRESHOLD
+        gallery_embeddings=gallery_embeddings, t_verify=config.verification.DEFAULT_THRESHOLD
     )
     logger.info(f"Verifier ready with threshold: {config.verification.DEFAULT_THRESHOLD}")
 
@@ -105,12 +97,14 @@ async def main():
     try:
         # Preprocess the user's selfie (removes people)
         from PIL import Image
+
         user_image = Image.open(test_image_path)
         preprocessed = preprocessor.preprocess_image(user_image)
 
         # Extract features
         with builder.feature_extractor.eval():
             import torch
+
             with torch.no_grad():
                 query_embedding = builder.feature_extractor(
                     preprocessed.unsqueeze(0).to(builder.device)
@@ -133,9 +127,9 @@ async def main():
     except Exception as e:
         logger.error(f"Verification failed: {e}")
         import traceback
+
         traceback.print_exc()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-

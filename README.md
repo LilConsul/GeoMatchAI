@@ -16,12 +16,12 @@ GeoMatchAI is a Python library that solves the challenge of verifying a user's p
 
 ### Key Features
 
-✅ **Person Segmentation** - Automatically removes people from selfies using DeepLabV3 to focus on landmark features  
-✅ **High Accuracy** - 87.5% verification accuracy with 33.2% discrimination gap  
-✅ **Fast Inference** - ~75ms per verification (excluding gallery build)  
-✅ **Multiple Model Support** - TorchVision and TIMM EfficientNet variants (B4/B5)  
-✅ **Async Image Fetching** - Concurrent Mapillary API integration for reference gallery building  
-✅ **Production Ready** - Comprehensive error handling, validation, and security features  
+✅ **Person Segmentation** - Automatically removes people from selfies using DeepLabV3 to focus on landmark features
+✅ **High Accuracy** - 87.5% verification accuracy with 33.2% discrimination gap
+✅ **Fast Inference** - ~75ms per verification (excluding gallery build)
+✅ **Multiple Model Support** - TorchVision and TIMM EfficientNet variants (B4/B5)
+✅ **Async Image Fetching** - Concurrent Mapillary API integration for reference gallery building
+✅ **Production Ready** - Comprehensive error handling, validation, and security features
 ✅ **Extensible Architecture** - Clean abstractions for fetchers, models, and verification logic
 
 ---
@@ -146,42 +146,42 @@ async def verify_landmark():
     # 1. Fetch reference images from Mapillary (Wawel Castle example)
     fetcher = MapillaryFetcher(api_token="YOUR_MAPILLARY_TOKEN")
     lat, lon = 50.054404, 19.935730  # Wawel Castle coordinates
-    
+
     # 2. Build reference gallery (one-time setup per landmark)
     builder = GalleryBuilder(
         device="cuda",  # or "cpu" for CPU-only
         model_type="timm",
         model_variant="tf_efficientnet_b4.ns_jft_in1k"  # RECOMMENDED
     )
-    
+
     gallery_embeddings = await builder.build_gallery(
         fetcher.get_images(lat, lon, num_images=200),
         skip_preprocessing=True  # Gallery images are clean (no people)
     )
-    
+
     print(f"✅ Gallery built: {gallery_embeddings.shape[0]} images, {gallery_embeddings.shape[1]}D embeddings")
-    
+
     # 3. Initialize verifier
     verifier = LandmarkVerifier(
         gallery_embeddings=gallery_embeddings,
         t_verify=0.65  # Recommended threshold
     )
-    
+
     # 4. Verify user's selfie
     user_selfie = Image.open("user_selfie.jpg").convert("RGB")
-    
+
     # Preprocess (removes person, extracts landmark features)
     query_tensor = builder.preprocessor.preprocess_image(user_selfie)
-    
+
     # Extract features
     with torch.no_grad():
         query_embedding = builder.feature_extractor(
             query_tensor.unsqueeze(0).to(builder.device)
         )
-    
+
     # Verify
     is_verified, similarity_score = verifier.verify(query_embedding)
-    
+
     if is_verified:
         print(f"✅ VERIFIED at landmark! Similarity score: {similarity_score:.3f}")
     else:
@@ -208,28 +208,28 @@ async def verify_with_local_gallery():
         model_type="timm",
         model_variant="tf_efficientnet_b4.ns_jft_in1k"
     )
-    
+
     # Create async generator from local images
     async def load_local_images():
         gallery_dir = Path("path/to/gallery/images")
         for img_path in gallery_dir.glob("*.jpg"):
             yield Image.open(img_path).convert("RGB")
-    
+
     gallery_embeddings = await builder.build_gallery(
         load_local_images(),
         skip_preprocessing=True
     )
-    
+
     # 2. Verify user image
     verifier = LandmarkVerifier(gallery_embeddings, t_verify=0.65)
     user_img = Image.open("user_photo.jpg").convert("RGB")
-    
+
     query_tensor = builder.preprocessor.preprocess_image(user_img)
     with torch.no_grad():
         query_embedding = builder.feature_extractor(
             query_tensor.unsqueeze(0).to(builder.device)
         )
-    
+
     is_verified, score = verifier.verify(query_embedding)
     print(f"Result: {'✅ VERIFIED' if is_verified else '❌ REJECTED'} (score: {score:.3f})")
 
@@ -512,9 +512,9 @@ from PIL import Image
 
 class CustomFetcher(BaseFetcher):
     async def get_images(
-        self, 
-        lat: float, 
-        lon: float, 
+        self,
+        lat: float,
+        lon: float,
         num_images: int = 20
     ) -> AsyncGenerator[Image.Image, None]:
         # Your implementation
@@ -587,4 +587,3 @@ If you use GeoMatchAI in your research, please cite:
 <div align="center">
   <strong>Built with ❤️ using PyTorch, EfficientNet, and DeepLabV3</strong>
 </div>
-
