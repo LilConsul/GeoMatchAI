@@ -119,7 +119,8 @@ async def main():
     logger.info("\n=== Step 4: Verifying User Selfie ===")
 
     # Example: Load a test image (replace with actual user selfie)
-    test_image_path = Path("tests/input/wawel/wawel1.jpg")
+    current_dir = Path(__file__).parent.resolve()
+    test_image_path = current_dir / "tests" / "input" / "wawel" / "wawel1.jpg"
 
     if not test_image_path.exists():
         logger.warning(f"Test image not found: {test_image_path}")
