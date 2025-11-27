@@ -163,3 +163,39 @@ class GalleryBuilder:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         return embeddings.cpu()
+
+    def extract_embedding(
+        self, image: Image.Image, skip_preprocessing: bool = False
+    ) -> torch.Tensor:
+        """
+        Extract embedding from a single image.
+
+        This is a convenience method for extracting embeddings from individual images,
+        such as user selfies for verification.
+
+        Args:
+            image: PIL Image to extract embedding from
+            skip_preprocessing: Skip person removal for clean images (default False)
+                               Set to True if image doesn't have people in foreground
+
+        Returns:
+            Embedding tensor of shape (1, D) ready for verification
+        """
+        try:
+            # Preprocess the image
+            if skip_preprocessing:
+                img_tensor = self.preprocessor.transform_image(image)
+            else:
+                img_tensor = self.preprocessor.preprocess_image(image)
+
+            # Extract features with the model in eval mode
+            self.feature_extractor.eval()
+            with torch.no_grad():
+                embedding = self.feature_extractor(img_tensor.unsqueeze(0).to(self.device))
+
+            # Move to device for verification (verifier expects same device as gallery)
+            return embedding.to(self.device)
+
+        except Exception as e:
+            logger.error(f"Failed to extract embedding: {e}")
+            raise

@@ -17,7 +17,6 @@ from geomatchai import (
     GalleryBuilder,
     LandmarkVerifier,
     MapillaryFetcher,
-    Preprocessor,
     config,
     validate_config,
 )
@@ -86,9 +85,6 @@ async def main():
     # Device is auto-detected or uses config.get_device() if set globally
     builder = GalleryBuilder()
 
-    # Preprocessor uses same device as builder
-    preprocessor = Preprocessor()
-
     # Step 2: Fetch reference images and build gallery
     logger.info("\n=== Step 2: Building Reference Gallery ===")
     logger.info(f"Fetching images within {config.fetcher.DEFAULT_SEARCH_RADIUS}m radius...")
@@ -128,20 +124,13 @@ async def main():
         return
 
     try:
-        # Preprocess the user's selfie (removes people)
+        # Load and extract embedding from user's selfie
         from PIL import Image
 
         user_image = Image.open(test_image_path)
-        preprocessed = preprocessor.preprocess_image(user_image)
 
-        # Extract features
-        with builder.feature_extractor.eval():
-            import torch
-
-            with torch.no_grad():
-                query_embedding = builder.feature_extractor(
-                    preprocessed.unsqueeze(0).to(builder.device)
-                )
+        # Extract embedding (automatically preprocesses and removes people)
+        query_embedding = builder.extract_embedding(user_image, skip_preprocessing=False)
 
         # Verify
         is_verified, similarity_score = verifier.verify(query_embedding)
