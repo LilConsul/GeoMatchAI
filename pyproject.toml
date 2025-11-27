@@ -65,16 +65,11 @@ select = [
     "I", # isort
     "C", # flake8-comprehensions
     "B", # flake8-bugbear
-    "UP", # pyupgrade
-    "N", # pep8-naming
-    "ANN", # flake8-annotations
 ]
 ignore = [
-    "E501", # line too long
+    "E501", # line too long, handled by black
     "B008", # do not perform function calls in argument defaults
     "C901", # complexity
-    "ANN101", # missing type annotation for self
-    "ANN102", # missing type annotation for cls
 ]
 
 [tool.ruff.lint.per-file-ignores]
