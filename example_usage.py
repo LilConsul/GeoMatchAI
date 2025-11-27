@@ -10,6 +10,7 @@ This script demonstrates the full pipeline:
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 
 from geomatchai import (
@@ -18,6 +19,7 @@ from geomatchai import (
     MapillaryFetcher,
     Preprocessor,
     config,
+    validate_config,
 )
 
 # Configure logging
@@ -34,10 +36,12 @@ async def main():
     # STEP 0: Configure the library (required for your application)
     # ==========================================================================
 
-    # Set your Mapillary API key
-    # Get it from: https://www.mapillary.com/dashboard/developers
-    MAPILLARY_API_KEY = "your_mapillary_api_key_here"  # Replace with your actual key
-    config.set_mapillary_api_key(MAPILLARY_API_KEY)
+    # Get Mapillary API key from environment
+    # Get your key from: https://www.mapillary.com/dashboard/developers
+    MAPILLARY_API_KEY = os.getenv("MAPILLARY_API_KEY")
+
+    if MAPILLARY_API_KEY:
+        config.set_mapillary_api_key(MAPILLARY_API_KEY)
 
     # Optional: Configure logging level (default is INFO)
     # config.set_log_level("DEBUG")
@@ -46,7 +50,7 @@ async def main():
     # config.set_device("cuda")  # or "cpu" or "auto"
 
     # Validate configuration
-    validation_errors = config.validate()
+    validation_errors = validate_config(config)
     if validation_errors:
         logger.error("Configuration validation failed:")
         for error in validation_errors:

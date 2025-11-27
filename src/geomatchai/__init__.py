@@ -20,6 +20,7 @@ __all__ = [
     "BaseFetcher",
     "config",
     "Config",
+    "validate_config",
 ]
 
 # Configure default logging
@@ -27,7 +28,7 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 # Core components
 # Configuration
-from geomatchai.config import Config, config
+from geomatchai.config import Config, config, validate_config
 
 # Exceptions
 from geomatchai.exceptions import (
