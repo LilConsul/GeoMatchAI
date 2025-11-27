@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class GalleryBuilder:
     def __init__(
         self,
-        device: str = "cuda" if torch.cuda.is_available() else "cpu",
+        device: str | None = None,
         model_type: str = config.model.DEFAULT_MODEL_TYPE,
         model_variant: str | None = None,
     ):
@@ -28,7 +28,8 @@ class GalleryBuilder:
         Initialize GalleryBuilder with configurable feature extractor.
 
         Args:
-            device: Device to run on ('cuda' or 'cpu')
+            device: Device to run on ('cuda' or 'cpu').
+                   If None, uses config.get_device() or auto-detects.
             model_type: Type of model to use (defaults to config.model.DEFAULT_MODEL_TYPE):
                 - 'torchvision': Standard EfficientNet-B4 from torchvision
                 - 'timm': Better pre-trained EfficientNet from timm library
@@ -42,6 +43,12 @@ class GalleryBuilder:
                 For 'torchvision':
                     - 'b4', 'b5', etc.
         """
+        # Priority: instance parameter > global config > auto-detect
+        if device is None:
+            device = config.get_device()
+        if device is None or device == "auto":
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+
         self.device = device
         self.model_type = model_type
         self.preprocessor = Preprocessor(device=self.device)

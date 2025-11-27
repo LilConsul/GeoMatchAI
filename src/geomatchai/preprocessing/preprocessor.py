@@ -22,7 +22,20 @@ logger = logging.getLogger(__name__)
 
 
 class Preprocessor:
-    def __init__(self, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
+    def __init__(self, device: str | None = None):
+        """
+        Initialize Preprocessor with person segmentation model.
+
+        Args:
+            device: Device to use ("cuda" or "cpu").
+                   If None, uses config.get_device() or auto-detects.
+        """
+        # Priority: instance parameter > global config > auto-detect
+        if device is None:
+            device = config.get_device()
+        if device is None or device == "auto":
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+
         self.device = device
         logger.info(f"Initializing Preprocessor on device: {device}")
         self.model = deeplabv3_resnet101(

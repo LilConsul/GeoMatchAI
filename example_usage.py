@@ -2,7 +2,7 @@
 Complete usage example for GeoMatchAI library.
 
 This script demonstrates the full pipeline:
-1. Configure logging
+1. Configure the library
 2. Fetch reference images from Mapillary
 3. Build a gallery of embeddings
 4. Verify a user's selfie against the gallery
@@ -30,6 +30,21 @@ logger = logging.getLogger(__name__)
 async def main():
     """Main function demonstrating GeoMatchAI usage."""
 
+    # ==========================================================================
+    # STEP 0: Configure the library (required for your application)
+    # ==========================================================================
+
+    # Set your Mapillary API key
+    # Get it from: https://www.mapillary.com/dashboard/developers
+    MAPILLARY_API_KEY = "your_mapillary_api_key_here"  # Replace with your actual key
+    config.set_mapillary_api_key(MAPILLARY_API_KEY)
+
+    # Optional: Configure logging level (default is INFO)
+    # config.set_log_level("DEBUG")
+
+    # Optional: Configure device globally (default is auto-detect per instance)
+    # config.set_device("cuda")  # or "cpu" or "auto"
+
     # Validate configuration
     validation_errors = config.validate()
     if validation_errors:
@@ -38,19 +53,20 @@ async def main():
             logger.error(f"  - {error}")
         return
 
-    # Configuration
-    LANDMARK_LAT = 50.054404  # Wawel Castle latitude
-    LANDMARK_LON = 19.935730  # Wawel Castle longitude
-    MAPILLARY_API_KEY = config.get_mapillary_api_key()
-
-    if not MAPILLARY_API_KEY:
-        logger.error("MAPILLARY_API_KEY environment variable not set!")
+    # Check if API key is set
+    if not config.get_mapillary_api_key():
+        logger.error("Mapillary API key not configured!")
+        logger.info("Please set it with: config.set_mapillary_api_key('your_key')")
         logger.info("Get your API key from: https://www.mapillary.com/dashboard/developers")
         return
 
+    # Configuration
+    LANDMARK_LAT = 50.054404  # Wawel Castle latitude
+    LANDMARK_LON = 19.935730  # Wawel Castle longitude
+
     logger.info("Starting GeoMatchAI pipeline...")
     logger.info(f"Target location: ({LANDMARK_LAT}, {LANDMARK_LON})")
-    logger.info(f"Using config defaults:")
+    logger.info("Using config defaults:")
     logger.info(f"  - Model: {config.model.DEFAULT_MODEL_TYPE}/{config.model.DEFAULT_TIMM_VARIANT}")
     logger.info(f"  - Verification threshold: {config.verification.DEFAULT_THRESHOLD}")
     logger.info(f"  - Search radius: {config.fetcher.DEFAULT_SEARCH_RADIUS}m")
@@ -58,12 +74,15 @@ async def main():
 
     # Step 1: Initialize components
     logger.info("\n=== Step 1: Initializing Components ===")
-    # All parameters use config defaults
-    fetcher = MapillaryFetcher(api_token=MAPILLARY_API_KEY)
 
-    # Model type and variant use config defaults (timm + NoisyStudent)
+    # Fetcher uses configured API key
+    fetcher = MapillaryFetcher(api_token=config.get_mapillary_api_key())
+
+    # Builder uses config defaults (timm + NoisyStudent)
+    # Device is auto-detected or uses config.get_device() if set globally
     builder = GalleryBuilder()
 
+    # Preprocessor uses same device as builder
     preprocessor = Preprocessor()
 
     # Step 2: Fetch reference images and build gallery

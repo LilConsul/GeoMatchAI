@@ -1,11 +1,20 @@
 """
 Configuration management for GeoMatchAI.
 
-Centralizes all configurable parameters, constants, and environment-based settings.
+Centralizes all configurable parameters, constants, and user settings.
+Users can configure the library by setting values directly on the config object
+or by passing parameters to individual classes.
+
+Example:
+    >>> from geomatchai import config
+    >>> config.set_mapillary_api_key("your_key_here")
+    >>> config.set_device("cuda")
+    >>> config.set_log_level("DEBUG")
 """
 
 import os
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass
@@ -77,23 +86,18 @@ class FetcherConfig:
     DEFAULT_MAX_RETRIES: int = 3
     DEFAULT_THUMBNAIL_RESOLUTION: int = 1024
 
-    # Environment variable names
-    MAPILLARY_API_KEY_ENV: str = "MAPILLARY_API_KEY"
-
 
 @dataclass
 class RuntimeConfig:
     """Configuration for runtime behavior (logging, device, etc.)."""
 
     # Logging
-    DEFAULT_LOG_LEVEL: str = "INFO"
     VALID_LOG_LEVELS: tuple[str, ...] = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
-    LOG_LEVEL_ENV: str = "LOG_LEVEL"
 
-    # Device
-    DEFAULT_DEVICE: str = "auto"  # "auto", "cuda", or "cpu"
-    DEVICE_ENV: str = "DEVICE"
-    CUDA_VISIBLE_DEVICES_ENV: str = "CUDA_VISIBLE_DEVICES"
+    # These are user-settable at runtime
+    _log_level: str | None = None  # User can set via config.set_log_level()
+    _device: str | None = None  # User can set via config.set_device()
+    _mapillary_api_key: str | None = None  # User can set via config.set_mapillary_api_key()
 
 
 class Config:
@@ -112,44 +116,134 @@ class Config:
         self.fetcher = FetcherConfig()
         self.runtime = RuntimeConfig()
 
+    # =============================================================================
+    # User Configuration Methods
+    # =============================================================================
+
+    def set_mapillary_api_key(self, api_key: str) -> None:
+        """
+        Set Mapillary API key for the library.
+
+        Args:
+            api_key: Your Mapillary client access token
+
+        Example:
+            >>> config.set_mapillary_api_key("your_key_here")
+        """
+        self.runtime._mapillary_api_key = api_key
+
     def get_mapillary_api_key(self) -> str | None:
         """
-        Get Mapillary API key from environment.
+        Get configured Mapillary API key.
+
+        Priority:
+            1. User-set value (via set_mapillary_api_key)
+            2. MAPILLARY_API_KEY environment variable (convenience for dev)
+            3. None
 
         Returns:
-            API key if set, None otherwise
+            API key if configured, None otherwise
         """
-        return os.getenv(self.fetcher.MAPILLARY_API_KEY_ENV)
+        # Priority 1: User-configured value
+        if self.runtime._mapillary_api_key:
+            return self.runtime._mapillary_api_key
+
+        # Priority 2: Environment variable (for development convenience)
+        return os.getenv("MAPILLARY_API_KEY")
+
+    def set_log_level(
+        self, level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+    ) -> None:
+        """
+        Set logging level for the library.
+
+        Args:
+            level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+        Example:
+            >>> config.set_log_level("DEBUG")
+
+        Raises:
+            ValueError: If invalid log level provided
+        """
+        level_upper = level.upper()
+        if level_upper not in self.runtime.VALID_LOG_LEVELS:
+            raise ValueError(
+                f"Invalid log level: {level}. "
+                f"Must be one of: {', '.join(self.runtime.VALID_LOG_LEVELS)}"
+            )
+        self.runtime._log_level = level_upper
 
     def get_log_level(self) -> str:
         """
-        Get log level from environment or use default.
+        Get configured logging level.
+
+        Priority:
+            1. User-set value (via set_log_level)
+            2. LOG_LEVEL environment variable (convenience for dev)
+            3. Default: "INFO"
 
         Returns:
-            Log level string (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            Log level string
         """
-        level = os.getenv(self.runtime.LOG_LEVEL_ENV, self.runtime.DEFAULT_LOG_LEVEL).upper()
-        return level if level in self.runtime.VALID_LOG_LEVELS else self.runtime.DEFAULT_LOG_LEVEL
+        # Priority 1: User-configured value
+        if self.runtime._log_level:
+            return self.runtime._log_level
 
-    def get_device(self) -> str:
-        """
-        Get device configuration from environment or use default.
+        # Priority 2: Environment variable (for development convenience)
+        env_level = os.getenv("LOG_LEVEL", "INFO").upper()
+        if env_level in self.runtime.VALID_LOG_LEVELS:
+            return env_level
 
-        Returns:
-            Device string ("auto", "cuda", or "cpu")
+        # Priority 3: Default
+        return "INFO"
+
+    def set_device(self, device: Literal["auto", "cuda", "cpu"]) -> None:
         """
-        device = os.getenv(self.runtime.DEVICE_ENV, self.runtime.DEFAULT_DEVICE).lower()
+        Set default device for computation globally.
+
+        This can be overridden per-instance when creating components.
+
+        Args:
+            device: Device to use ("auto", "cuda", or "cpu")
+
+        Example:
+            >>> config.set_device("cuda")  # Use GPU globally
+
+        Raises:
+            ValueError: If invalid device provided
+        """
+        device_lower = device.lower()
         valid_devices = ("auto", "cuda", "cpu")
-        return device if device in valid_devices else self.runtime.DEFAULT_DEVICE
+        if device_lower not in valid_devices:
+            raise ValueError(
+                f"Invalid device: {device}. Must be one of: {', '.join(valid_devices)}"
+            )
+        self.runtime._device = device_lower
 
-    def get_cuda_visible_devices(self) -> str | None:
+    def get_device(self) -> str | None:
         """
-        Get CUDA_VISIBLE_DEVICES from environment.
+        Get globally configured device.
+
+        Priority:
+            1. User-set value (via set_device)
+            2. DEVICE environment variable (convenience for dev)
+            3. None (each class will auto-detect)
 
         Returns:
-            CUDA device IDs if set, None otherwise
+            Device string if configured, None if should auto-detect per-instance
         """
-        return os.getenv(self.runtime.CUDA_VISIBLE_DEVICES_ENV)
+        # Priority 1: User-configured value
+        if self.runtime._device:
+            return self.runtime._device
+
+        # Priority 2: Environment variable (for development convenience)
+        env_device = os.getenv("DEVICE", "").lower()
+        if env_device in ("auto", "cuda", "cpu"):
+            return env_device
+
+        # Priority 3: None (let each instance decide)
+        return None
 
     def validate(self) -> list[str]:
         """
