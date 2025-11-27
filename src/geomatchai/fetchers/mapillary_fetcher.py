@@ -61,6 +61,9 @@ class MapillaryFetcher(BaseFetcher):
         self.interface = mly.interface
         self.interface.set_access_token(api_token)
 
+        # Suppress verbose mapillary client logging to avoid duplicate output
+        logging.getLogger("mapillary.utils.client").setLevel(logging.WARNING)
+
         logger.info("MapillaryFetcher initialized successfully")
 
     async def get_images(
