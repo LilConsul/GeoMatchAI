@@ -96,6 +96,7 @@ class GeoMatchAI:
     async def create(
         cls,
         fetcher: BaseFetcher,
+        *,  # Force keyword arguments
         num_gallery_images: int | None = None,
         search_radius: float | None = None,
         device: Literal["auto", "cuda", "cpu"] | None = None,
@@ -160,8 +161,10 @@ class GeoMatchAI:
         batch_size = batch_size or config.gallery.DEFAULT_BATCH_SIZE
 
         logger.info("Initializing GeoMatchAI...")
-        logger.info(f"Configuration: num_images={num_gallery_images}, radius={search_radius}m, "
-                   f"threshold={threshold}, batch_size={batch_size}")
+        logger.info(
+            f"Configuration: num_images={num_gallery_images}, radius={search_radius}m, "
+            f"threshold={threshold}, batch_size={batch_size}"
+        )
 
         # Initialize gallery builder
         logger.info(f"Loading model: {model_type} ({model_variant or 'default variant'})")
