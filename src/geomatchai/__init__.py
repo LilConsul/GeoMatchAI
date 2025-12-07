@@ -11,6 +11,7 @@ import logging
 __version__ = "0.1.0"
 __author__ = "GeoMatchAI Contributors"
 __all__ = [
+    "GeoMatchAI",  # Main singleton interface - USE THIS!
     "Preprocessor",
     "GalleryBuilder",
     "LandmarkVerifier",
@@ -27,6 +28,9 @@ __all__ = [
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 # Core components
+# Singleton interface (recommended for most users)
+from geomatchai.verifier_singleton import GeoMatchAI
+
 # Configuration
 from geomatchai.config import Config, config, validate_config
 
