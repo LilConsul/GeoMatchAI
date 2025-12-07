@@ -26,15 +26,21 @@ class LocalFolderFetcher(BaseFetcher):
 
 
 async def example_with_mapillary():
-    """Example using MapillaryFetcher."""
+    """Example using MapillaryFetcher with config."""
 
     print("Example 1: MapillaryFetcher")
+
+    # Configure library settings
+    # It automatically reads from MAPILLARY_API_KEY env var
+    # config.set_mapillary_api_key("YOUR_MAPILLARY_API_KEY")
+    config.set_device("cuda")
+    config.set_log_level("INFO")
 
     # Create fetcher
     fetcher = MapillaryFetcher(api_token=config.get_mapillary_api_key())
 
-    # Create verifier
-    verifier = await GeoMatchAI.create(fetcher=fetcher, num_gallery_images=200, threshold=0.65)
+    # Create verifier (uses config defaults)
+    verifier = await GeoMatchAI.create(fetcher=fetcher)
 
     # Verify image
     with open("tests/input/wawel/wawel1.jpg", "rb") as f:
@@ -44,7 +50,7 @@ async def example_with_mapillary():
 
 
 async def example_with_custom_fetcher():
-    """Example using custom LocalFolderFetcher."""
+    """Example using custom LocalFolderFetcher with config."""
     print("Example 2: Custom LocalFolderFetcher")
 
     # Configure library settings
@@ -54,8 +60,8 @@ async def example_with_custom_fetcher():
     # Create custom fetcher
     fetcher = LocalFolderFetcher(folder=Path("tests/input/wawel"))
 
-    # Create verifier
-    verifier = await GeoMatchAI.create(fetcher=fetcher, threshold=0.65)
+    # Create verifier (uses config defaults)
+    verifier = await GeoMatchAI.create(fetcher=fetcher)
 
     # Verify image
     with open("tests/input/wawel/wawel1.jpg", "rb") as f:

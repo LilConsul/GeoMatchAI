@@ -96,54 +96,72 @@ class GeoMatchAI:
     async def create(
         cls,
         fetcher: BaseFetcher,
-        num_gallery_images: int = 200,
-        search_radius: float = 50.0,
-        device: Literal["auto", "cuda", "cpu"] = "auto",
-        model_type: Literal["torchvision", "timm", "timm_ensemble"] = "timm",
+        num_gallery_images: int | None = None,
+        search_radius: float | None = None,
+        device: Literal["auto", "cuda", "cpu"] | None = None,
+        model_type: Literal["torchvision", "timm", "timm_ensemble"] | None = None,
         model_variant: str | None = None,
-        threshold: float = 0.65,
+        threshold: float | None = None,
         skip_gallery_preprocessing: bool = True,
-        batch_size: int = 32,
+        batch_size: int | None = None,
     ) -> "GeoMatchAI":
         """
         Create and initialize a GeoMatchAI verifier.
 
+        All parameters use config defaults if not specified.
+
         Args:
             fetcher: Instance of BaseFetcher (e.g., MapillaryFetcher) to fetch gallery images
-            num_gallery_images: Number of images to fetch per landmark (default: 200)
-            search_radius: Search radius in meters for fetching (default: 50.0)
-            device: Device to run on - "auto", "cuda", or "cpu" (default: "auto")
-            model_type: Model architecture (default: "timm"):
+            num_gallery_images: Number of images to fetch per landmark
+                              (default: config.fetcher.DEFAULT_NUM_IMAGES)
+            search_radius: Search radius in meters for fetching
+                         (default: config.fetcher.DEFAULT_SEARCH_RADIUS)
+            device: Device to run on - "auto", "cuda", or "cpu"
+                   (default: config.get_device() or "auto")
+            model_type: Model architecture (default: config.model.DEFAULT_MODEL_TYPE):
                 - "timm": Best performance (RECOMMENDED)
                 - "torchvision": Standard EfficientNet
                 - "timm_ensemble": Ensemble model (slower)
-            model_variant: Specific model variant (default: tf_efficientnet_b4.ns_jft_in1k for timm)
-            threshold: Verification threshold 0.50-0.85 (default: 0.65)
+            model_variant: Specific model variant
+                         (default: config.model.DEFAULT_TIMM_VARIANT for timm)
+            threshold: Verification threshold
+                      (default: config.verification.DEFAULT_THRESHOLD)
             skip_gallery_preprocessing: Skip person removal for gallery images (default: True)
                                        Set False if gallery contains people
-            batch_size: Batch size for gallery processing (default: 32)
+            batch_size: Batch size for gallery processing
+                       (default: config.gallery.DEFAULT_BATCH_SIZE)
 
         Returns:
             Initialized GeoMatchAI instance
 
         Example:
-            from geomatchai import GeoMatchAI
+            from geomatchai import GeoMatchAI, config
             from geomatchai.fetchers import MapillaryFetcher
 
-            # Create with Mapillary fetcher
+            # Configure globally
+            config.set_device("cuda")
+            config.set_log_level("INFO")
+
+            # Create with Mapillary fetcher (uses config defaults)
             fetcher = MapillaryFetcher(api_token="YOUR_KEY")
-            verifier = await GeoMatchAI.create(
-                fetcher=fetcher,
-                num_gallery_images=200,
-                threshold=0.65
-            )
+            verifier = await GeoMatchAI.create(fetcher=fetcher)
 
             # Verify user image
             with open("selfie.jpg", "rb") as f:
                 image_bytes = f.read()
             is_verified, score = await verifier.verify(50.054404, 19.935730, image_bytes)
         """
+        # Use config defaults if not specified
+        num_gallery_images = num_gallery_images or config.fetcher.DEFAULT_NUM_IMAGES
+        search_radius = search_radius or config.fetcher.DEFAULT_SEARCH_RADIUS
+        device = device or config.get_device() or "auto"
+        model_type = model_type or config.model.DEFAULT_MODEL_TYPE
+        threshold = threshold or config.verification.DEFAULT_THRESHOLD
+        batch_size = batch_size or config.gallery.DEFAULT_BATCH_SIZE
+
         logger.info("Initializing GeoMatchAI...")
+        logger.info(f"Configuration: num_images={num_gallery_images}, radius={search_radius}m, "
+                   f"threshold={threshold}, batch_size={batch_size}")
 
         # Initialize gallery builder
         logger.info(f"Loading model: {model_type} ({model_variant or 'default variant'})")
@@ -156,7 +174,7 @@ class GeoMatchAI:
         dummy_embedding = torch.randn(1, config.model.EFFICIENTNET_B4_FEATURES)
         verifier = LandmarkVerifier(gallery_embeddings=dummy_embedding, t_verify=threshold)
 
-        logger.info("✅ GeoMatchAI initialization complete!")
+        logger.info("GeoMatchAI initialization complete")
 
         return cls(
             gallery_builder=gallery_builder,

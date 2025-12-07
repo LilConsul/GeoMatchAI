@@ -9,7 +9,7 @@ A production-ready deep learning library that verifies whether a user is physica
 [![Python](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9.1-red.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Skill Issue](https://img.shields.io/badge/skill-issue-orange.svg)](https://github.com/yourusername/GeoMatchAI)
+[![Skill Issue](https://img.shields.io/badge/skill-issue-orange.svg)](https://github.com/LilConsul/GeoMatchAI)
 
 ---
 
@@ -98,13 +98,13 @@ GeoMatchAI is a Python library that solves the challenge of verifying a user's p
 
 ```powershell
 # Add GeoMatchAI to your project
-uv add git+https://github.com/yourusername/GeoMatchAI.git
+uv add git+https://github.com/LilConsul/GeoMatchAI.git
 
 # For CPU-only PyTorch (smaller download, no GPU support)
-uv add git+https://github.com/yourusername/GeoMatchAI.git --index pytorch-cpu
+uv add git+https://github.com/LilConsul/GeoMatchAI.git --index pytorch-cpu
 
 # For CUDA 12.8 (GPU acceleration - default)
-uv add git+https://github.com/yourusername/GeoMatchAI.git
+uv add git+https://github.com/LilConsul/GeoMatchAI.git
 ```
 
 ### Development Installation
@@ -113,7 +113,7 @@ If you want to contribute or modify the library:
 
 ```powershell
 # Clone the repository
-git clone https://github.com/yourusername/GeoMatchAI.git
+git clone https://github.com/LilConsul/GeoMatchAI.git
 cd GeoMatchAI
 
 # Install in editable mode with all dependencies
@@ -141,16 +141,20 @@ See [example_usage.py](example_usage.py) for complete working examples.
 
 ```python
 import asyncio
-from pathlib import Path
-from geomatchai import GeoMatchAI
+from geomatchai import GeoMatchAI, config
 from geomatchai.fetchers import MapillaryFetcher
 
 async def main():
-    # Create fetcher
-    fetcher = MapillaryFetcher(api_token="YOUR_MAPILLARY_API_KEY")
+    # Configure library settings
+    config.set_mapillary_api_key("YOUR_MAPILLARY_API_KEY")
+    config.set_device("cuda")
+    config.set_log_level("INFO")
     
-    # Create verifier
-    verifier = await GeoMatchAI.create(fetcher=fetcher, threshold=0.65)
+    # Create fetcher
+    fetcher = MapillaryFetcher(api_token=config.get_mapillary_api_key())
+    
+    # Create verifier (uses config defaults)
+    verifier = await GeoMatchAI.create(fetcher=fetcher)
     
     # Verify image
     with open("user_selfie.jpg", "rb") as f:
@@ -162,6 +166,7 @@ asyncio.run(main())
 ```
 
 The verifier automatically:
+- Uses config defaults for all parameters (threshold, batch_size, num_images, etc.)
 - Fetches reference images for each location (cached per location)
 - Builds gallery embeddings (cached)
 - Verifies images against the gallery
@@ -272,7 +277,7 @@ All models tested with 8 images (6 Wawel + 2 unrelated), threshold = 0.65:
 
 ```powershell
 # Clone and set up development environment
-git clone https://github.com/yourusername/GeoMatchAI.git
+git clone https://github.com/LilConsul/GeoMatchAI.git
 cd GeoMatchAI
 uv sync
 
@@ -314,17 +319,31 @@ Main interface for verification. See [example_usage.py](example_usage.py) for co
 #### `GeoMatchAI.create()`
 
 ```python
+# All parameters are optional and use config defaults
 verifier = await GeoMatchAI.create(
     fetcher=fetcher,                    # BaseFetcher instance (required)
-    num_gallery_images=200,             # Images to fetch per location
-    search_radius=50.0,                 # Search radius in meters
-    threshold=0.65,                     # Verification threshold (0.50-0.85)
-    device="auto",                      # "auto", "cuda", or "cpu"
-    model_type="timm",                  # "timm", "torchvision", "timm_ensemble"
-    model_variant=None,                 # Specific model variant
+    num_gallery_images=None,            # default: config.fetcher.DEFAULT_NUM_IMAGES (20)
+    search_radius=None,                 # default: config.fetcher.DEFAULT_SEARCH_RADIUS (50.0)
+    threshold=None,                     # default: config.verification.DEFAULT_THRESHOLD (0.65)
+    device=None,                        # default: config.get_device() or "auto"
+    model_type=None,                    # default: config.model.DEFAULT_MODEL_TYPE ("timm")
+    model_variant=None,                 # default: config.model.DEFAULT_TIMM_VARIANT
     skip_gallery_preprocessing=True,    # Skip person removal for gallery
-    batch_size=32                       # Gallery processing batch size
+    batch_size=None                     # default: config.gallery.DEFAULT_BATCH_SIZE (32)
 )
+```
+
+**Recommended usage:** Configure settings via `config`, then create verifier with just the fetcher:
+
+```python
+from geomatchai import GeoMatchAI, config
+
+# Configure once
+config.set_device("cuda")
+config.set_log_level("INFO")
+
+# Create verifier (uses all config defaults)
+verifier = await GeoMatchAI.create(fetcher=fetcher)
 ```
 
 #### `verifier.verify()`
