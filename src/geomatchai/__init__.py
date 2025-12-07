@@ -29,7 +29,7 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 # Core components
 # Singleton interface (recommended for most users)
-from geomatchai.verifier_singleton import GeoMatchAI
+from geomatchai.verifier import GeoMatchAI
 
 # Configuration
 from geomatchai.config import Config, config, validate_config

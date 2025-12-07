@@ -1,151 +1,77 @@
 """
-GeoMatchAI usage examples.
-
-Example 1: Basic usage with MapillaryFetcher
-Example 2: Custom fetcher implementation
+GeoMatchAI minimal usage example.
 """
 
 import asyncio
 from pathlib import Path
 from collections.abc import AsyncGenerator
-
 from PIL import Image
 
-from geomatchai import GeoMatchAI
-from geomatchai.fetchers import MapillaryFetcher, BaseFetcher
+from geomatchai import GeoMatchAI, config
+from geomatchai.fetchers import BaseFetcher, MapillaryFetcher
 
 
 class LocalFolderFetcher(BaseFetcher):
-    """
-    Custom fetcher that reads images from a local folder.
+    """Custom fetcher that reads images from local folder."""
 
-    This demonstrates how to implement BaseFetcher for your own image sources.
-    """
-
-    def __init__(self, gallery_folder: Path):
-        self.gallery_folder = Path(gallery_folder)
+    def __init__(self, folder: Path):
+        self.folder = Path(folder)
 
     async def get_images(
-        self,
-        lat: float,
-        lon: float,
-        num_images: int = 20
+        self, lat: float, lon: float, num_images: int = 20
     ) -> AsyncGenerator[Image.Image, None]:
-        """
-        Yield images from local folder.
-
-        In a real implementation, you might filter by lat/lon proximity.
-        """
-        image_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
-        count = 0
-
-        for image_path in self.gallery_folder.iterdir():
-            if count >= num_images:
-                break
-
-            if image_path.suffix.lower() in image_extensions:
-                try:
-                    img = Image.open(image_path).convert("RGB")
-                    yield img
-                    count += 1
-                except Exception as e:
-                    print(f"Failed to load {image_path}: {e}")
-                    continue
+        for img_path in self.folder.iterdir():
+            if img_path.suffix.lower() in {".jpg", ".jpeg", ".png"}:
+                yield Image.open(img_path).convert("RGB")
 
 
-async def example_mapillary():
-    """Example 1: Basic usage with Mapillary."""
+async def example_with_mapillary():
+    """Example using MapillaryFetcher."""
 
-    print("Example 1: Using MapillaryFetcher")
-    print("-" * 50)
+    print("Example 1: MapillaryFetcher")
 
     # Create fetcher
-    fetcher = MapillaryFetcher(api_token="YOUR_MAPILLARY_API_KEY")
+    fetcher = MapillaryFetcher(api_token=config.get_mapillary_api_key())
 
     # Create verifier
-    verifier = await GeoMatchAI.create(
-        fetcher=fetcher,
-        num_gallery_images=200,
-        threshold=0.65,
-        device="auto"
-    )
-
-    print(f"Verifier created: {verifier}")
+    verifier = await GeoMatchAI.create(fetcher=fetcher, num_gallery_images=200, threshold=0.65)
 
     # Verify image
-    test_image = Path("tests/input/wawel/wawel1.jpg")
-    if test_image.exists():
-        with open(test_image, "rb") as f:
-            image_bytes = f.read()
+    with open("tests/input/wawel/wawel1.jpg", "rb") as f:
+        is_verified, score = await verifier.verify(50.054404, 19.935730, f.read())
 
-        # Wawel Castle coordinates
-        lat, lon = 50.054404, 19.935730
-
-        is_verified, score = await verifier.verify(lat, lon, image_bytes)
-
-        print(f"Location: ({lat}, {lon})")
-        print(f"Verified: {is_verified}")
-        print(f"Score: {score:.3f}")
-    else:
-        print(f"Test image not found: {test_image}")
-
-    print()
+    print(f"Verified: {is_verified}, Score: {score:.3f}")
 
 
-async def example_custom_fetcher():
-    """Example 2: Using custom fetcher."""
+async def example_with_custom_fetcher():
+    """Example using custom LocalFolderFetcher."""
+    print("Example 2: Custom LocalFolderFetcher")
 
-    print("Example 2: Using Custom LocalFolderFetcher")
-    print("-" * 50)
+    # Configure library settings
+    config.set_log_level("INFO")
+    config.set_device("auto")
 
     # Create custom fetcher
-    gallery_folder = Path("tests/input/wawel")
-
-    if not gallery_folder.exists():
-        print(f"Gallery folder not found: {gallery_folder}")
-        return
-
-    fetcher = LocalFolderFetcher(gallery_folder=gallery_folder)
+    fetcher = LocalFolderFetcher(folder=Path("tests/input/wawel"))
 
     # Create verifier
-    verifier = await GeoMatchAI.create(
-        fetcher=fetcher,
-        num_gallery_images=50,
-        threshold=0.65,
-        skip_gallery_preprocessing=True
-    )
-
-    print(f"Verifier created: {verifier}")
+    verifier = await GeoMatchAI.create(fetcher=fetcher, threshold=0.65)
 
     # Verify image
-    test_image = Path("tests/input/wawel/wawel1.jpg")
-    if test_image.exists():
-        with open(test_image, "rb") as f:
-            image_bytes = f.read()
+    with open("tests/input/wawel/wawel1.jpg", "rb") as f:
+        is_verified, score = await verifier.verify(50.054404, 19.935730, f.read())
 
-        # Coordinates (not used by LocalFolderFetcher, but required by API)
-        lat, lon = 50.054404, 19.935730
-
-        is_verified, score = await verifier.verify(lat, lon, image_bytes)
-
-        print(f"Location: ({lat}, {lon})")
-        print(f"Verified: {is_verified}")
-        print(f"Score: {score:.3f}")
-        print(f"Cached locations: {verifier.cached_locations}")
-    else:
-        print(f"Test image not found: {test_image}")
-
-    print()
+    print(f"Verified: {is_verified}, Score: {score:.3f}")
 
 
 async def main():
-    """Run all examples."""
-
     # Run custom fetcher example (works without API key)
-    await example_custom_fetcher()
+    if (config.get_mapillary_api_key() is None) or (config.get_mapillary_api_key() == ""):
+        await example_with_custom_fetcher()
 
-    # Uncomment to run Mapillary example (requires API key)
-    # await example_mapillary()
+    # Run Mapillary example (requires API key)
+    else:
+        await example_with_mapillary()
 
 
 
