@@ -74,7 +74,7 @@ class GeoMatchAI:
         threshold: float,
         device: str,
         model_type: str,
-        model_variant: str | None
+        model_variant: str | None,
     ):
         """Private constructor. Use GeoMatchAI.create() instead."""
         self.gallery_builder = gallery_builder
@@ -148,18 +148,13 @@ class GeoMatchAI:
         # Initialize gallery builder
         logger.info(f"Loading model: {model_type} ({model_variant or 'default variant'})")
         gallery_builder = GalleryBuilder(
-            device=device,
-            model_type=model_type,
-            model_variant=model_variant
+            device=device, model_type=model_type, model_variant=model_variant
         )
 
         # Create a dummy verifier (will be updated on first verify call)
         # We need this to avoid building gallery at creation time
         dummy_embedding = torch.randn(1, config.model.EFFICIENTNET_B4_FEATURES)
-        verifier = LandmarkVerifier(
-            gallery_embeddings=dummy_embedding,
-            t_verify=threshold
-        )
+        verifier = LandmarkVerifier(gallery_embeddings=dummy_embedding, t_verify=threshold)
 
         logger.info("✅ GeoMatchAI initialization complete!")
 
@@ -174,9 +169,8 @@ class GeoMatchAI:
             threshold=threshold,
             device=device,
             model_type=model_type,
-            model_variant=model_variant
+            model_variant=model_variant,
         )
-
 
     async def _get_or_build_gallery(self, lat: float, lon: float) -> torch.Tensor:
         """
@@ -201,19 +195,17 @@ class GeoMatchAI:
         logger.info(f"Building gallery for landmark ({lat}, {lon})...")
         logger.info(f"Fetching {self.num_gallery_images} images, radius: {self.search_radius}m")
 
-        gallery_gen = self.fetcher.get_images(
-            lat=lat,
-            lon=lon,
-            num_images=self.num_gallery_images
-        )
+        gallery_gen = self.fetcher.get_images(lat=lat, lon=lon, num_images=self.num_gallery_images)
 
         gallery_embeddings = await self.gallery_builder.build_gallery(
             gallery_gen,
             batch_size=self.batch_size,
-            skip_preprocessing=self.skip_gallery_preprocessing
+            skip_preprocessing=self.skip_gallery_preprocessing,
         )
 
-        logger.info(f"Gallery built: {gallery_embeddings.shape[0]} images, {gallery_embeddings.shape[1]}D features")
+        logger.info(
+            f"Gallery built: {gallery_embeddings.shape[0]} images, {gallery_embeddings.shape[1]}D features"
+        )
 
         # Cache the gallery
         self._gallery_cache[cache_key] = gallery_embeddings
@@ -221,11 +213,7 @@ class GeoMatchAI:
         return gallery_embeddings
 
     async def verify(
-        self,
-        lat: float,
-        lon: float,
-        image_bytes: bytes,
-        skip_preprocessing: bool = False
+        self, lat: float, lon: float, image_bytes: bytes, skip_preprocessing: bool = False
     ) -> tuple[bool, float]:
         """
         Verify if an image shows the landmark at the given coordinates.
@@ -277,15 +265,13 @@ class GeoMatchAI:
 
         # Extract embedding
         query_embedding = self.gallery_builder.extract_embedding(
-            image,
-            skip_preprocessing=skip_preprocessing
+            image, skip_preprocessing=skip_preprocessing
         )
 
         # Verify
         is_verified, score = self.verifier.verify(query_embedding)
 
         return is_verified, score
-
 
     def update_threshold(self, threshold: float):
         """
@@ -351,4 +337,3 @@ class GeoMatchAI:
             f"cached_locations={len(self._gallery_cache)}"
             f")"
         )
-

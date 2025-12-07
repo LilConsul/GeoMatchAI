@@ -74,6 +74,5 @@ async def main():
         await example_with_mapillary()
 
 
-
 if __name__ == "__main__":
     asyncio.run(main())
