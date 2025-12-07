@@ -2,11 +2,14 @@
 
 **High-Performance Visual Place Verification Library**
 
+**Authors:** Shevchenko Denys & Karabanov Yehor
+
 A production-ready deep learning library that verifies whether a user is physically present at a specific landmark by comparing their selfie against reference imagery. Built with PyTorch, EfficientNet, and advanced computer vision techniques.
 
 [![Python](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.9.1-red.svg)](https://pytorch.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Skill Issue](https://img.shields.io/badge/skill-issue-orange.svg)](https://github.com/yourusername/GeoMatchAI)
 
 ---
 
@@ -132,135 +135,85 @@ $env:MAPILLARY_API_KEY="YOUR_API_KEY_HERE"
 
 ## 🚀 Quick Start
 
-### Basic Usage
+### Basic Example
+
+See [example_usage.py](example_usage.py) for complete working examples.
 
 ```python
 import asyncio
-import torch
-from PIL import Image
-from geomatchai.gallery.gallery_builder import GalleryBuilder
-from geomatchai.verification.verifier import LandmarkVerifier
-from geomatchai.fetchers.mapillary_fetcher import MapillaryFetcher
-
-async def verify_landmark():
-    # 1. Fetch reference images from Mapillary (Wawel Castle example)
-    fetcher = MapillaryFetcher(api_token="YOUR_MAPILLARY_TOKEN")
-    lat, lon = 50.054404, 19.935730  # Wawel Castle coordinates
-
-    # 2. Build reference gallery (one-time setup per landmark)
-    builder = GalleryBuilder(
-        device="cuda",  # or "cpu" for CPU-only
-        model_type="timm",
-        model_variant="tf_efficientnet_b4.ns_jft_in1k"  # RECOMMENDED
-    )
-
-    gallery_embeddings = await builder.build_gallery(
-        fetcher.get_images(lat, lon, num_images=200),
-        skip_preprocessing=True  # Gallery images are clean (no people)
-    )
-
-    print(f"✅ Gallery built: {gallery_embeddings.shape[0]} images, {gallery_embeddings.shape[1]}D embeddings")
-
-    # 3. Initialize verifier
-    verifier = LandmarkVerifier(
-        gallery_embeddings=gallery_embeddings,
-        t_verify=0.65  # Recommended threshold
-    )
-
-    # 4. Verify user's selfie
-    user_selfie = Image.open("user_selfie.jpg").convert("RGB")
-
-    # Preprocess (removes person, extracts landmark features)
-    query_tensor = builder.preprocessor.preprocess_image(user_selfie)
-
-    # Extract features
-    with torch.no_grad():
-        query_embedding = builder.feature_extractor(
-            query_tensor.unsqueeze(0).to(builder.device)
-        )
-
-    # Verify
-    is_verified, similarity_score = verifier.verify(query_embedding)
-
-    if is_verified:
-        print(f"✅ VERIFIED at landmark! Similarity score: {similarity_score:.3f}")
-    else:
-        print(f"❌ NOT VERIFIED. Similarity score: {similarity_score:.3f}")
-
-# Run
-asyncio.run(verify_landmark())
-```
-
-### Without Mapillary (Using Your Own Images)
-
-```python
-import asyncio
-import torch
-from PIL import Image
 from pathlib import Path
-from geomatchai.gallery.gallery_builder import GalleryBuilder
-from geomatchai.verification.verifier import LandmarkVerifier
+from geomatchai import GeoMatchAI
+from geomatchai.fetchers import MapillaryFetcher
 
-async def verify_with_local_gallery():
-    # 1. Build gallery from local images
-    builder = GalleryBuilder(
-        device="cuda",
-        model_type="timm",
-        model_variant="tf_efficientnet_b4.ns_jft_in1k"
-    )
+async def main():
+    # Create fetcher
+    fetcher = MapillaryFetcher(api_token="YOUR_MAPILLARY_API_KEY")
+    
+    # Create verifier
+    verifier = await GeoMatchAI.create(fetcher=fetcher, threshold=0.65)
+    
+    # Verify image
+    with open("user_selfie.jpg", "rb") as f:
+        is_verified, score = await verifier.verify(50.054404, 19.935730, f.read())
+    
+    print(f"Verified: {is_verified}, Score: {score:.3f}")
 
-    # Create async generator from local images
-    async def load_local_images():
-        gallery_dir = Path("path/to/gallery/images")
-        for img_path in gallery_dir.glob("*.jpg"):
-            yield Image.open(img_path).convert("RGB")
-
-    gallery_embeddings = await builder.build_gallery(
-        load_local_images(),
-        skip_preprocessing=True
-    )
-
-    # 2. Verify user image
-    verifier = LandmarkVerifier(gallery_embeddings, t_verify=0.65)
-    user_img = Image.open("user_photo.jpg").convert("RGB")
-
-    query_tensor = builder.preprocessor.preprocess_image(user_img)
-    with torch.no_grad():
-        query_embedding = builder.feature_extractor(
-            query_tensor.unsqueeze(0).to(builder.device)
-        )
-
-    is_verified, score = verifier.verify(query_embedding)
-    print(f"Result: {'✅ VERIFIED' if is_verified else '❌ REJECTED'} (score: {score:.3f})")
-
-asyncio.run(verify_with_local_gallery())
+asyncio.run(main())
 ```
 
-### Advanced Configuration
+The verifier automatically:
+- Fetches reference images for each location (cached per location)
+- Builds gallery embeddings (cached)
+- Verifies images against the gallery
+
+### Custom Fetcher
+
+Implement `BaseFetcher` to use your own image source:
 
 ```python
-# Use different model variants
-builder = GalleryBuilder(
-    device="cuda",
-    model_type="timm",
-    model_variant="tf_efficientnet_b4.ns_jft_in1k"  # Options:
-    # - "tf_efficientnet_b4.ns_jft_in1k" (NoisyStudent - BEST)
-    # - "tf_efficientnet_b4.ap_in1k" (AdvProp)
-    # - "tf_efficientnet_b4" (Standard)
-)
+from geomatchai.fetchers import BaseFetcher
+from collections.abc import AsyncGenerator
+from PIL import Image
 
-# Ensemble model (slower but potentially more robust)
-builder = GalleryBuilder(
-    model_type="timm_ensemble"  # Combines NoisyStudent + AdvProp
-)
+class DatabaseFetcher(BaseFetcher):
+    async def get_images(self, lat: float, lon: float, num_images: int = 20) -> AsyncGenerator[Image.Image, None]:
+        for image_data in your_database.query(lat, lon):
+            yield Image.open(image_data)
 
-# Adjust verification threshold
-verifier = LandmarkVerifier(
-    gallery_embeddings=gallery_embeddings,
-    t_verify=0.55  # Stricter (fewer false positives)
-    # t_verify=0.70  # More lenient (fewer false negatives)
-)
+# Use it
+fetcher = DatabaseFetcher()
+verifier = await GeoMatchAI.create(fetcher=fetcher)
 ```
+
+### Configuration
+
+Configure library settings using the `config` object:
+
+```python
+from geomatchai import config
+
+# Set Mapillary API key
+config.set_mapillary_api_key("YOUR_KEY")
+
+# Set device (auto, cuda, or cpu)
+config.set_device("cuda")
+
+# Set logging level
+config.set_log_level("INFO")  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+# Access configuration constants
+print(config.verification.DEFAULT_THRESHOLD)  # 0.65
+print(config.model.DEFAULT_MODEL_TYPE)        # "timm"
+print(config.fetcher.DEFAULT_SEARCH_RADIUS)   # 50.0
+```
+
+Configuration options:
+- `config.set_mapillary_api_key(key)` - Set API key (or use `MAPILLARY_API_KEY` env var)
+- `config.set_device(device)` - Set device: "auto", "cuda", or "cpu"
+- `config.set_log_level(level)` - Set logging: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+- `config.get_mapillary_api_key()` - Get API key (checks env var if not set)
+- `config.get_device()` - Get configured device
+- `config.get_log_level()` - Get logging level
 
 ---
 
@@ -354,83 +307,95 @@ uv run python tests/plot_results.py
 
 ## 📖 API Reference
 
-### Preprocessor
+### GeoMatchAI
+
+Main interface for verification. See [example_usage.py](example_usage.py) for complete examples.
+
+#### `GeoMatchAI.create()`
 
 ```python
-from geomatchai.preprocessing.preprocessor import Preprocessor
-
-preprocessor = Preprocessor(device="cuda")
-
-# Preprocess image (with person removal)
-cleaned_tensor = preprocessor.preprocess_image(pil_image)
-
-# Transform only (no person removal - for gallery images)
-tensor = preprocessor.transform_image(pil_image)
-
-# From file path
-tensor = preprocessor.preprocess_image_from_path("path/to/image.jpg")
-```
-
-**Security Features:**
-- Image size validation (max 50MB)
-- Dimension validation (100-10,000 pixels)
-- File existence checks
-
-### GalleryBuilder
-
-```python
-from geomatchai.gallery.gallery_builder import GalleryBuilder
-
-builder = GalleryBuilder(
-    device="cuda",
-    model_type="timm",
-    model_variant="tf_efficientnet_b4.ns_jft_in1k"
-)
-
-# Build gallery from async generator
-gallery_embeddings = await builder.build_gallery(
-    image_generator,
-    batch_size=32,  # Adjust based on GPU memory
-    skip_preprocessing=True  # For clean gallery images
+verifier = await GeoMatchAI.create(
+    fetcher=fetcher,                    # BaseFetcher instance (required)
+    num_gallery_images=200,             # Images to fetch per location
+    search_radius=50.0,                 # Search radius in meters
+    threshold=0.65,                     # Verification threshold (0.50-0.85)
+    device="auto",                      # "auto", "cuda", or "cpu"
+    model_type="timm",                  # "timm", "torchvision", "timm_ensemble"
+    model_variant=None,                 # Specific model variant
+    skip_gallery_preprocessing=True,    # Skip person removal for gallery
+    batch_size=32                       # Gallery processing batch size
 )
 ```
 
-### LandmarkVerifier
+#### `verifier.verify()`
 
 ```python
-from geomatchai.verification.verifier import LandmarkVerifier
-
-verifier = LandmarkVerifier(
-    gallery_embeddings=gallery_tensor,  # Shape: (N, 1792)
-    t_verify=0.65
+is_verified, score = await verifier.verify(
+    lat=50.054404,                      # Landmark latitude (required)
+    lon=19.935730,                      # Landmark longitude (required)
+    image_bytes=image_bytes,            # Image data as bytes (required)
+    skip_preprocessing=False            # Skip person removal for query
 )
-
-# Verify query
-is_verified, score = verifier.verify(query_embedding)
-
-# Update threshold dynamically
-verifier.set_threshold(0.70)
-
-# Get gallery info
-gallery_size = verifier.get_gallery_size()
 ```
 
-### MapillaryFetcher
+#### Other Methods
 
 ```python
-from geomatchai.fetchers.mapillary_fetcher import MapillaryFetcher
+# Update threshold
+verifier.update_threshold(0.70)
 
-fetcher = MapillaryFetcher(api_token="YOUR_TOKEN")
+# Clear cache
+verifier.clear_cache()
 
-# Async generator - yields images as they download
-async for img in fetcher.get_images(
-    lat=50.054404,
-    lon=19.935730,
-    distance=50.0,  # Search radius in meters
-    num_images=200
-):
-    # Process image immediately
-    img.save(f"gallery_{count}.jpg")
+# Properties
+verifier.device                         # Device being used
+verifier.model_info                     # Model information dict
+verifier.cached_locations               # List of cached (lat, lon)
+```
+
+### BaseFetcher
+
+Interface for custom image fetchers:
+
+```python
+from geomatchai.fetchers import BaseFetcher
+from collections.abc import AsyncGenerator
+from PIL import Image
+
+class CustomFetcher(BaseFetcher):
+    async def get_images(
+        self, 
+        lat: float, 
+        lon: float, 
+        num_images: int = 20
+    ) -> AsyncGenerator[Image.Image, None]:
+        # Yield PIL Images
+        for img_data in your_source:
+            yield Image.open(img_data)
+```
+
+### Configuration Constants
+
+Access via `config` object:
+
+```python
+from geomatchai import config
+
+# Verification thresholds
+config.verification.DEFAULT_THRESHOLD      # 0.65
+config.verification.STRICT_THRESHOLD       # 0.55
+config.verification.LENIENT_THRESHOLD      # 0.70
+
+# Model settings
+config.model.DEFAULT_MODEL_TYPE            # "timm"
+config.model.DEFAULT_TIMM_VARIANT          # "tf_efficientnet_b4.ns_jft_in1k"
+
+# Fetcher settings
+config.fetcher.DEFAULT_SEARCH_RADIUS       # 50.0
+config.fetcher.DEFAULT_NUM_IMAGES          # 20
+
+# Gallery settings
+config.gallery.DEFAULT_BATCH_SIZE          # 32
 ```
 
 ---
@@ -439,35 +404,41 @@ async for img in fetcher.get_images(
 
 ### Threshold Tuning
 
-Based on your use case, adjust the verification threshold:
+Adjust the verification threshold based on your use case:
 
 | Threshold | Use Case | Trade-off |
 |-----------|----------|-----------|
 | **0.55-0.60** | High security applications | Fewer false positives, more false negatives |
-| **0.65** ⭐ | Balanced (RECOMMENDED) | Optimal accuracy (87.5%) |
+| **0.65** | Balanced (RECOMMENDED) | Optimal accuracy (87.5%) |
 | **0.70-0.75** | User-friendly applications | Fewer false negatives, more false positives |
 
-### GPU vs CPU
+### Device Selection
 
 ```python
-# Auto-detect (uses CUDA if available)
-builder = GalleryBuilder()
+from geomatchai import config
 
-# Force CPU (for servers without GPU)
-builder = GalleryBuilder(device="cpu")
+# Configure globally
+config.set_device("cuda")   # Use GPU
+config.set_device("cpu")    # Use CPU only
+config.set_device("auto")   # Auto-detect (default)
 
-# Force CUDA (fails if not available)
-builder = GalleryBuilder(device="cuda")
+# Or per-instance
+verifier = await GeoMatchAI.create(fetcher=fetcher, device="cuda")
 ```
 
 **Performance Impact (TIMM-NoisyStudent with preprocessing):**
-- **GPU (CUDA 12.8):** 75.6ms inference (57ms preprocessing + 14ms feature extraction + 1ms verification)
-- **Gallery Build:** 4.1-4.3s for 198 images (batch processing)
-- **CPU:** ~200-500ms inference (depending on CPU, not tested)
+- **GPU (CUDA):** 75.6ms inference
+- **CPU:** ~200-500ms inference (slower)
 
-**Speed Comparison:**
-- With preprocessing: ~75ms (better accuracy, 87.5%)
-- Without preprocessing: ~23ms (faster but lower discrimination, 28.5% gap)
+### Logging
+
+```python
+from geomatchai import config
+
+config.set_log_level("DEBUG")    # Verbose output
+config.set_log_level("INFO")     # Normal output (default)
+config.set_log_level("WARNING")  # Warnings only
+```
 
 ---
 
@@ -477,71 +448,49 @@ builder = GalleryBuilder(device="cuda")
 
 ```
 GeoMatchAI/
-├── src/geomatchai/
+├── src/
+│   └── geomatchai/
+│       ├── __init__.py
+│       ├── config.py                    # Configuration management
+│       ├── exceptions.py                # Custom exceptions
+│       ├── verifier_singleton.py        # Main GeoMatchAI class
+│       ├── fetchers/                    # Image fetchers
+│       │   ├── __init__.py
+│       │   ├── base_fetcher.py         # Abstract fetcher interface
+│       │   └── mapillary_fetcher.py    # Mapillary API integration
+│       ├── gallery/                     # Reference gallery builder
+│       │   ├── __init__.py
+│       │   └── gallery_builder.py
+│       ├── models/                      # Feature extraction models
+│       │   ├── __init__.py
+│       │   ├── efficientnet.py         # TorchVision EfficientNet
+│       │   └── efficientnet_timm.py    # TIMM EfficientNet variants
+│       ├── preprocessing/               # Image preprocessing
+│       │   ├── __init__.py
+│       │   └── preprocessor.py         # DeepLabV3 segmentation
+│       └── verification/                # Verification logic
+│           ├── __init__.py
+│           └── verifier.py             # Cosine similarity verifier
+├── tests/                               # Test suite
 │   ├── __init__.py
-│   ├── fetchers/              # Image fetchers (Mapillary, etc.)
-│   │   ├── base_fetcher.py
-│   │   └── mapillary_fetcher.py
-│   ├── gallery/               # Reference gallery builder
-│   │   └── gallery_builder.py
-│   ├── models/                # Feature extraction models
-│   │   ├── efficientnet.py           # TorchVision
-│   │   └── efficientnet_timm.py      # TIMM variants
-│   ├── preprocessing/         # Image preprocessing & segmentation
-│   │   └── preprocessor.py
-│   └── verification/          # Verification logic
-│       └── verifier.py
-├── tests/                     # Comprehensive test suite
-│   ├── test_comprehensive.py  # Main test suite
-│   ├── plot_results.py        # Visualization generator
-│   ├── input/                 # Test images
-│   └── output/                # Test results & plots
-├── pyproject.toml             # Project configuration
-├── goal.md                    # Project goals & architecture
-└── README.md                  # This file
+│   ├── usertest_comprehensive.py        # Full test suite
+│   ├── usertest_preprocessing.py        # Preprocessing tests
+│   ├── usertest_gallery.py             # Gallery builder tests
+│   ├── usertest_verifier.py            # Verifier tests
+│   ├── input/                          # Test images
+│   │   ├── wawel/                      # Wawel Castle test images
+│   │   └── ...
+│   └── output/                         # Test results
+│       ├── refactored/                 # Processed images
+│       └── wrapper/                    # Wrapper test outputs
+├── example_usage.py                     # Usage examples
+├── pyproject.toml                       # Project configuration & dependencies
+├── uv.lock                             # Dependency lock file
+├── README.md                           # This file
+├── CONTRIBUTING.md                     # Contribution guidelines
+├── LICENSE                             # MIT License
+└── goal.md                             # Project goals & architecture
 ```
-
-### Adding Custom Fetchers
-
-Extend `BaseFetcher` to add new image sources:
-
-```python
-from geomatchai.fetchers.base_fetcher import BaseFetcher
-from typing import AsyncGenerator
-from PIL import Image
-
-class CustomFetcher(BaseFetcher):
-    async def get_images(
-        self,
-        lat: float,
-        lon: float,
-        num_images: int = 20
-    ) -> AsyncGenerator[Image.Image, None]:
-        # Your implementation
-        for img_data in your_api_call(lat, lon):
-            yield Image.open(img_data)
-```
-
----
-
-## 🎯 Roadmap
-
-### Completed ✅
-- [x] EfficientNet-B4 feature extraction (TorchVision & TIMM)
-- [x] Semantic segmentation for person removal
-- [x] Combined similarity metric (optimized to pure cosine)
-- [x] Async Mapillary integration
-- [x] Comprehensive testing suite with CSV export
-- [x] Visualization tools
-
-### Planned 🚧
-- [ ] Human-in-the-loop feedback system for continuous improvement
-- [ ] Model re-training pipeline with ArcFace/Triplet Loss
-- [ ] Negative anchor support (rejection against other landmarks)
-- [ ] REST API wrapper for deployment
-- [ ] Docker containerization
-- [ ] Multi-landmark support (not just Wawel Castle)
-- [ ] Mobile app integration examples
 
 ---
 
@@ -560,30 +509,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 📧 Contact & Support
-
-For questions, issues, or contributions:
-- Open an issue on GitHub
-- Submit a pull request
-- Contact: [your-email@example.com]
-
----
-
-## 🌟 Citation
-
-If you use GeoMatchAI in your research, please cite:
-
-```bibtex
-@software{geomatchai2025,
-  title={GeoMatchAI: High-Performance Visual Place Verification Library},
-  author={Your Name},
-  year={2025},
-  url={https://github.com/yourusername/GeoMatchAI}
-}
-```
-
----
-
 <div align="center">
-  <strong>Built with ❤️ using PyTorch, EfficientNet, and DeepLabV3</strong>
+  <strong>Built with PyTorch, EfficientNet, and DeepLabV3</strong>
 </div>
