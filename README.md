@@ -19,13 +19,13 @@ GeoMatchAI is a Python library that solves the challenge of verifying a user's p
 
 ### Key Features
 
-✅ **Person Segmentation** - Automatically removes people from selfies using DeepLabV3 to focus on landmark features
-✅ **High Accuracy** - 87.5% verification accuracy with 33.2% discrimination gap
-✅ **Fast Inference** - ~75ms per verification (excluding gallery build)
-✅ **Multiple Model Support** - TorchVision and TIMM EfficientNet variants (B4/B5)
-✅ **Async Image Fetching** - Concurrent Mapillary API integration for reference gallery building
-✅ **Production Ready** - Comprehensive error handling, validation, and security features
-✅ **Extensible Architecture** - Clean abstractions for fetchers, models, and verification logic
+- **Person Segmentation** - Automatically removes people from selfies using DeepLabV3 to focus on landmark features
+- **High Accuracy** - 87.5% verification accuracy with 33.2% discrimination gap
+- **Fast Inference** - ~75ms per verification (excluding gallery build)
+- **Multiple Model Support** - TorchVision and TIMM EfficientNet variants (B4/B5)
+- **Async Image Fetching** - Concurrent Mapillary API integration for reference gallery building
+- **Production Ready** - Comprehensive error handling, validation, and security features
+- **Extensible Architecture** - Clean abstractions for fetchers, models, and verification logic
 
 ---
 
@@ -68,10 +68,10 @@ GeoMatchAI is a Python library that solves the challenge of verifying a user's p
 └────────┬────────────────────────┘
          │
          ▼
-┌─────────────────┐
-│  ✅ VERIFIED    │
-│  ❌ REJECTED    │
-└─────────────────┘
+┌────────────┐
+│  VERIFIED  │
+│  REJECTED  │
+└────────────┘
 ```
 
 ### Core Components
