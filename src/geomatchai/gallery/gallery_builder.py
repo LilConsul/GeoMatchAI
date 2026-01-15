@@ -47,6 +47,7 @@ class GalleryBuilder:
         self.device = get_effective_device(device)
 
         self.model_type = model_type
+        self.model_variant = model_variant
         self.preprocessor = Preprocessor(device=self.device)
 
         # Load appropriate feature extractor
