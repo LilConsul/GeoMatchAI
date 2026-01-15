@@ -26,7 +26,7 @@ class LandmarkVerifier:
     - 0.332 discrimination gap (Wawel: 0.78, Unrelated: 0.45)
     - Best performance with preprocessing enabled
 
-    Reference: tests/test_weight_optimization.py
+    Reference: examples/test_weight_optimization.py
     """
 
     def __init__(

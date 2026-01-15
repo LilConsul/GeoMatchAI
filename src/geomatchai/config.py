@@ -12,6 +12,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Literal
 
+import torch
+
 # =============================================================================
 # Constants - Static configuration values
 # =============================================================================
@@ -208,6 +210,24 @@ def validate_config(cfg: Config) -> list[str]:
             errors.append(f"Invalid log level: {cfg._state.log_level}")
 
     return errors
+
+
+def get_effective_device(device_param: str | None = None) -> str:
+    """
+    Get the effective device string, resolving 'auto' and defaults.
+
+    Priority: device_param > config.get_device() > auto-detect
+
+    Args:
+        device_param: Device parameter from instance/method
+
+    Returns:
+        Device string: 'cuda' or 'cpu'
+    """
+    device = device_param or config.get_device()
+    if device is None or device == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    return device
 
 
 # Global config instance
