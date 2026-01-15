@@ -1,6 +1,8 @@
 from geomatchai.gallery.gallery_builder import GalleryBuilder
+import asyncio
 
-if __name__ == "__main__":
+
+async def main():
     # Initialize gallery builder
     builder = GalleryBuilder()
 
@@ -12,7 +14,7 @@ if __name__ == "__main__":
     ]
 
     try:
-        gallery_embeddings = builder.build_gallery(image_paths)
+        gallery_embeddings = await builder.build_gallery(image_paths)
         print(f"Gallery shape: {gallery_embeddings.shape}")
         print("Gallery built successfully.")
 
@@ -24,3 +26,7 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"Failed to build gallery: {e}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
