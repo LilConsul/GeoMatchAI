@@ -93,21 +93,21 @@ def get_test_images() -> list[tuple[str, str, bool]]:
 
 
 async def test_single_configuration(
-    model_type: str,
-    model_variant: str,
+    builder: GalleryBuilder,
+    gallery_embeddings: torch.Tensor,
     model_name: str,
-    gallery_images: list[Image.Image],
     test_image_path: str,
     test_image_name: str,
     is_wawel: bool,
     use_preprocessing: bool,
     device: str,
+    threshold: float,
 ) -> dict:
     """Test a single configuration and return detailed results with timing."""
 
     results = {
-        "model_type": model_type,
-        "model_variant": model_variant,
+        "model_type": builder.model_type,
+        "model_variant": builder.model_variant,
         "model_name": model_name,
         "image_name": test_image_name,
         "is_wawel": is_wawel,
@@ -115,21 +115,8 @@ async def test_single_configuration(
     }
 
     try:
-        # Time: Gallery build
-        t_start = time.time()
-
-        builder = GalleryBuilder(device=device, model_type=model_type, model_variant=model_variant)
-
-        async def image_gen() -> AsyncGenerator[Image.Image]:
-            for img in gallery_images:
-                yield img
-
-        gallery_embeddings = await builder.build_gallery(image_gen(), skip_preprocessing=True)
-
-        t_gallery_build = time.time() - t_start
-
         # Initialize verifier
-        verifier = LandmarkVerifier(gallery_embeddings, t_verify=THRESHOLD)
+        verifier = LandmarkVerifier(gallery_embeddings, t_verify=threshold)
 
         # Load test image
         test_image = Image.open(test_image_path).convert("RGB")
@@ -153,8 +140,8 @@ async def test_single_configuration(
         is_verified, similarity_score = verifier.verify(embedding)
         t_verify = time.time() - t_start
 
-        # Calculate total time
-        t_total = t_gallery_build + t_preprocess + t_feature_extract + t_verify
+        # Calculate total time (inference only, since gallery built once per model)
+        t_total = t_preprocess + t_feature_extract + t_verify
 
         # Determine if result is correct
         expected_result = is_wawel  # Wawel should verify, unrelated should not
@@ -167,21 +154,17 @@ async def test_single_configuration(
                 "expected_verified": expected_result,
                 "is_correct": is_correct,
                 "gallery_size": gallery_embeddings.shape[0],
-                "time_gallery_build_s": t_gallery_build,
+                "time_gallery_build_s": 0.0,  # Gallery built once per model, not per test
                 "time_preprocess_s": t_preprocess,
                 "time_feature_extract_s": t_feature_extract,
                 "time_verify_s": t_verify,
                 "time_total_s": t_total,
-                "time_inference_s": t_preprocess
-                + t_feature_extract
-                + t_verify,  # Without gallery build
+                "time_inference_s": t_total,  # Same as total now
                 "error": None,
             }
         )
 
         # Clean up memory
-        del builder
-        del gallery_embeddings
         del embedding
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -459,6 +442,18 @@ async def main():
     for model_type, model_variant, model_name in MODEL_CONFIGS:
         print(f"\nTesting: {model_name}")
 
+        # Build gallery once per model
+        t_start = time.time()
+        builder = GalleryBuilder(device=device, model_type=model_type, model_variant=model_variant)
+
+        async def image_gen() -> AsyncGenerator[Image.Image]:
+            for img in gallery_images:
+                yield img
+
+        gallery_embeddings = await builder.build_gallery(image_gen(), skip_preprocessing=True)
+        t_gallery_build = time.time() - t_start
+        print(f"Gallery built in {t_gallery_build:.2f}s")
+
         for img_path, img_name, is_wawel in test_images:
             for use_preprocessing in [True, False]:
                 test_count += 1
@@ -470,15 +465,15 @@ async def main():
                 )
 
                 result = await test_single_configuration(
-                    model_type,
-                    model_variant,
+                    builder,
+                    gallery_embeddings,
                     model_name,
-                    gallery_images,
                     img_path,
                     img_name,
                     is_wawel,
                     use_preprocessing,
                     device,
+                    THRESHOLD,
                 )
 
                 all_results.append(result)
@@ -491,6 +486,12 @@ async def main():
                     print(
                         f"{status} Score: {result['similarity_score']:.4f}, Time: {result['time_inference_s']:.3f}s"
                     )
+
+        # Clean up after model
+        del builder
+        del gallery_embeddings
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     t_total_all = time.time() - t_start_all
 
