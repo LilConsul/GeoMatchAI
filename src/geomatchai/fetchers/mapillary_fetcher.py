@@ -96,6 +96,35 @@ class MapillaryFetcher(BaseFetcher):
         """
         logger.info(f"Fetching {num_images} images near ({lat}, {lon}) within {distance}m radius")
 
+        # Fetch image metadata and extract image IDs
+        image_ids = await self._fetch_image_metadata(lat, lon, distance, num_images)
+
+        # Get thumbnail URLs in parallel
+        url_id_pairs = await self._get_thumbnail_urls(image_ids)
+
+        # Download images concurrently and yield as they complete
+        async with aiohttp.ClientSession(timeout=self._timeout) as session:
+            async for img in self._download_images(session, url_id_pairs):
+                yield img
+
+    async def _fetch_image_metadata(
+        self, lat: float, lon: float, distance: float, num_images: int
+    ) -> list[str]:
+        """
+        Fetch image metadata from Mapillary API and extract image IDs.
+
+        Args:
+            lat: Latitude of the target location
+            lon: Longitude of the target location
+            distance: Search radius in meters
+            num_images: Maximum number of images to fetch
+
+        Returns:
+            List of Mapillary image IDs
+
+        Raises:
+            MapillaryFetcherError: If no images found or API request fails
+        """
         loop = asyncio.get_running_loop()
 
         # Run synchronous SDK call in executor to avoid blocking
@@ -124,42 +153,72 @@ class MapillaryFetcher(BaseFetcher):
         image_ids = [features[i]["properties"]["id"] for i in range(min(num_images, len(features)))]
         logger.info(f"Found {len(image_ids)} image(s) to download")
 
-        # Get thumbnail URLs in parallel
-        async with aiohttp.ClientSession(timeout=self._timeout) as session:
-            with ThreadPoolExecutor() as executor:
-                thumbnail_url_tasks = [
-                    loop.run_in_executor(
-                        executor,
-                        lambda img_id=img_id: self.interface.image_thumbnail(
-                            img_id, resolution=config.fetcher.DEFAULT_THUMBNAIL_RESOLUTION
-                        ),
-                    )
-                    for img_id in image_ids
-                ]
-                thumbnail_urls = await asyncio.gather(*thumbnail_url_tasks, return_exceptions=True)
+        return image_ids
 
-            # Download images concurrently and yield as they complete
-            download_tasks = [
-                self._download_image(session, url, img_id)
-                for img_id, url in zip(image_ids, thumbnail_urls, strict=False)
-                if isinstance(url, str) and url
+    async def _get_thumbnail_urls(self, image_ids: list[str]) -> list[tuple[str, str]]:
+        """
+        Get thumbnail URLs for image IDs in parallel.
+
+        Args:
+            image_ids: List of Mapillary image IDs
+
+        Returns:
+            List of (url, id) tuples for valid URLs
+        """
+        loop = asyncio.get_running_loop()
+
+        with ThreadPoolExecutor() as executor:
+            thumbnail_url_tasks = [
+                loop.run_in_executor(
+                    executor,
+                    lambda img_id=img_id: self.interface.image_thumbnail(
+                        img_id, resolution=config.fetcher.DEFAULT_THUMBNAIL_RESOLUTION
+                    ),
+                )
+                for img_id in image_ids
             ]
+            thumbnail_urls = await asyncio.gather(*thumbnail_url_tasks, return_exceptions=True)
 
-            if not download_tasks:
-                logger.error("No valid thumbnail URLs obtained")
-                raise MapillaryFetcherError("Failed to get any thumbnail URLs")
+        # Filter valid URLs and pair with IDs
+        url_id_pairs = [
+            (url, img_id) for url, img_id in zip(thumbnail_urls, image_ids, strict=False)
+            if isinstance(url, str) and url
+        ]
+        if not url_id_pairs:
+            logger.error("No valid thumbnail URLs obtained")
+            raise MapillaryFetcherError("Failed to get any thumbnail URLs")
 
-            # Use as_completed to yield images as soon as they're ready
-            successful_downloads = 0
-            for coro in asyncio.as_completed(download_tasks):
-                img = await coro
-                if img is not None:
-                    successful_downloads += 1
-                    yield img
+        return url_id_pairs
 
-            logger.info(
-                f"Successfully downloaded {successful_downloads}/{len(download_tasks)} images"
-            )
+    async def _download_images(
+        self, session: aiohttp.ClientSession, url_id_pairs: list[tuple[str, str]]
+    ) -> AsyncGenerator[Image.Image]:
+        """
+        Download images concurrently and yield as they complete.
+
+        Args:
+            session: aiohttp ClientSession
+            url_id_pairs: List of (url, id) tuples
+
+        Yields:
+            PIL.Image instances
+        """
+        download_tasks = [
+            self._download_image(session, url, img_id)
+            for url, img_id in url_id_pairs
+        ]
+
+        # Use as_completed to yield images as soon as they're ready
+        successful_downloads = 0
+        for coro in asyncio.as_completed(download_tasks):
+            img = await coro
+            if img is not None:
+                successful_downloads += 1
+                yield img
+
+        logger.info(
+            f"Successfully downloaded {successful_downloads}/{len(download_tasks)} images"
+        )
 
     async def _download_image(
         self, session: aiohttp.ClientSession, url: str, image_id: str

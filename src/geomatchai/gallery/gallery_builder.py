@@ -11,7 +11,7 @@ from collections.abc import AsyncGenerator
 import torch
 from PIL import Image
 
-from ..config import config
+from ..config import config, get_effective_device
 from ..preprocessing.preprocessor import Preprocessor
 
 logger = logging.getLogger(__name__)
@@ -44,12 +44,8 @@ class GalleryBuilder:
                     - 'b4', 'b5', etc.
         """
         # Priority: instance parameter > global config > auto-detect
-        if device is None:
-            device = config.get_device()
-        if device is None or device == "auto":
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = get_effective_device(device)
 
-        self.device = device
         self.model_type = model_type
         self.preprocessor = Preprocessor(device=self.device)
 

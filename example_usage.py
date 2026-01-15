@@ -43,7 +43,7 @@ async def example_with_mapillary():
     verifier = await GeoMatchAI.create(fetcher=fetcher)
 
     # Verify image
-    with open("tests/input/wawel/wawel1.jpg", "rb") as f:
+    with open("examples/input/wawel/wawel1.jpg", "rb") as f:
         is_verified, score = await verifier.verify(50.054404, 19.935730, f.read())
 
     print(f"Verified: {is_verified}, Score: {score:.3f}")
@@ -58,13 +58,13 @@ async def example_with_custom_fetcher():
     config.set_device("auto")
 
     # Create custom fetcher
-    fetcher = LocalFolderFetcher(folder=Path("tests/input/wawel"))
+    fetcher = LocalFolderFetcher(folder=Path("examples/input/wawel"))
 
     # Create verifier (uses config defaults)
     verifier = await GeoMatchAI.create(fetcher=fetcher)
 
     # Verify image
-    with open("tests/input/wawel/wawel1.jpg", "rb") as f:
+    with open("examples/input/wawel/wawel1.jpg", "rb") as f:
         is_verified, score = await verifier.verify(50.054404, 19.935730, f.read())
 
     print(f"Verified: {is_verified}, Score: {score:.3f}")

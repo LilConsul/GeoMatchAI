@@ -285,12 +285,12 @@ uv sync
 $env:MAPILLARY_API_KEY="YOUR_API_KEY"
 
 # Run full test suite (tests all models, preprocessing modes, timing)
-uv run python tests/test_comprehensive.py
+uv run python examples/test_comprehensive.py
 
 # Run specific tests
-uv run python tests/test_preprocessing.py
-uv run python tests/test_gallery.py
-uv run python tests/test_verifier.py
+uv run python examples/test_preprocessing.py
+uv run python examples/test_gallery.py
+uv run python examples/test_verifier.py
 ```
 
 ### Generate Visualizations
@@ -300,13 +300,13 @@ uv run python tests/test_verifier.py
 uv sync --group plot
 
 # Generate all plots from test results
-uv run python tests/plot_results.py
+uv run python examples/plot_results.py
 ```
 
 **Generated Outputs:**
-- `tests/output/csv/` - Detailed CSV results
-- `tests/output/plots/` - 7 visualization plots
-- `tests/output/TEST_REPORT.txt` - Summary report
+- `examples/output/csv/` - Detailed CSV results
+- `examples/output/plots/` - 7 visualization plots
+- `examples/output/TEST_REPORT.txt` - Summary report
 
 ---
 
@@ -490,7 +490,7 @@ GeoMatchAI/
 │       └── verification/                # Verification logic
 │           ├── __init__.py
 │           └── verifier.py             # Cosine similarity verifier
-├── tests/                               # Test suite
+├── examples/                               # Test suite
 │   ├── __init__.py
 │   ├── usertest_comprehensive.py        # Full test suite
 │   ├── usertest_preprocessing.py        # Preprocessing tests

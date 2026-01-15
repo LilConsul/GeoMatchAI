@@ -44,7 +44,7 @@ Thank you for your interest in contributing to GeoMatchAI! This document provide
 uv run pytest
 
 # Run specific test file
-uv run pytest tests/test_verifier.py
+uv run pytest examples/test_verifier.py
 
 # Run with coverage
 uv run pytest --cov=geomatchai --cov-report=html
@@ -167,7 +167,7 @@ GeoMatchAI/
 │   ├── gallery/          # Gallery builder
 │   ├── verification/     # Verification logic
 │   └── fetchers/         # Image fetchers
-├── tests/                # Test files
+├── examples/                # Test files
 ├── pyproject.toml        # Project configuration
 ├── README.md             # Project documentation
 └── LICENSE               # MIT License

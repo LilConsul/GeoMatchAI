@@ -87,7 +87,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ANN", "F841", "E712"]  # Don't require annotations, allow unused vars, allow == True/False in tests
+"examples/*" = ["ANN", "F841", "E712"]  # Don't require annotations, allow unused vars, allow == True/False in tests
 "__init__.py" = ["F401"]  # Allow unused imports in __init__.py
 "example_usage.py" = ["N806"]  # Allow uppercase variables in example
 

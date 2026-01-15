@@ -16,7 +16,7 @@ from torchvision.models.segmentation import (
     deeplabv3_resnet101,
 )
 
-from ..config import config
+from ..config import config, get_effective_device
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +31,9 @@ class Preprocessor:
                    If None, uses config.get_device() or auto-detects.
         """
         # Priority: instance parameter > global config > auto-detect
-        if device is None:
-            device = config.get_device()
-        if device is None or device == "auto":
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = get_effective_device(device)
 
-        self.device = device
-        logger.info(f"Initializing Preprocessor on device: {device}")
+        logger.info(f"Initializing Preprocessor on device: {self.device}")
         self.model = deeplabv3_resnet101(
             weights=DeepLabV3_ResNet101_Weights.COCO_WITH_VOC_LABELS_V1, progress=True
         ).to(self.device)
