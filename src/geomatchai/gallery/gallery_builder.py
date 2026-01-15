@@ -31,17 +31,39 @@ class GalleryBuilder:
             device: Device to run on ('cuda' or 'cpu').
                    If None, uses config.get_device() or auto-detects.
             model_type: Type of model to use (defaults to config.model.DEFAULT_MODEL_TYPE):
-                - 'torchvision': Standard EfficientNet-B4 from torchvision
-                - 'timm': Better pre-trained EfficientNet from timm library
+                - 'torchvision': Models from torchvision (ResNet, DenseNet, EfficientNet, etc.)
+                - 'timm': Models from timm library (EfficientNets, ViT, ConvNeXt, etc.)
                 - 'timm_ensemble': Ensemble of multiple timm models (slower but better)
             model_variant: Specific variant for the selected model_type
                 (defaults based on model_type from config):
+
+                For 'torchvision':
+                    - 'b4': EfficientNet-B4 (default)
+                    - 'resnet50', 'resnet101', 'resnet152': ResNet variants
+                    - 'densenet121', 'densenet169': DenseNet variants
+                    - 'mobilenet_v3_large': MobileNetV3-Large
+                    - 'inception_v3': InceptionV3
+
                 For 'timm':
+                    EfficientNets:
                     - 'tf_efficientnet_b4.ns_jft_in1k': NoisyStudent (RECOMMENDED)
                     - 'tf_efficientnet_b4.ap_in1k': AdvProp
                     - 'tf_efficientnet_b4': Standard
-                For 'torchvision':
-                    - 'b4', 'b5', etc.
+                    - 'tf_efficientnet_b5', 'tf_efficientnet_b6'
+
+                    Modern CNNs:
+                    - 'resnest50d', 'resnest101e': ResNeSt variants
+                    - 'regnety_400mf', 'regnety_8gf': RegNet variants
+                    - 'convnext_base', 'convnext_large': ConvNeXt variants
+                    - 'nfnet_f0': NFNet-F0
+
+                    Vision Transformers:
+                    - 'vit_base_patch16_224', 'vit_large_patch16_224': ViT variants
+                    - 'deit_base_distilled_patch16_224': DeiT-Base
+                    - 'swin_base_patch4_window7_224', 'swin_large_patch4_window7_224': Swin Transformer
+
+                    CLIP models:
+                    - 'clip_vit_b32', 'clip_vit_b16', 'clip_rn50'
         """
         # Priority: instance parameter > global config > auto-detect
         self.device = get_effective_device(device)

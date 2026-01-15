@@ -2,6 +2,8 @@
 EfficientNet feature extractors using TIMM library.
 
 Provides better pre-trained weights than torchvision for landmark recognition.
+Supports a wide range of modern architectures including EfficientNets, ResNets,
+ConvNeXt, Vision Transformers, and CLIP models.
 """
 
 import logging
@@ -16,11 +18,16 @@ logger = logging.getLogger(__name__)
 
 class EfficientNetFeatureExtractor(nn.Module):
     """
-    EfficientNet feature extractor using timm library.
+    Universal TIMM feature extractor supporting multiple architectures.
 
-    Supports better pre-trained weights than torchvision:
-    - tf_efficientnet_b4.ns_jft_in1k: NoisyStudent training (better generalization)
-    - tf_efficientnet_b4.ap_in1k: AdvProp training (better robustness)
+    Supports:
+    - EfficientNets (B4, B5, B6 with various training strategies)
+    - ResNeSt (50d, 101e)
+    - RegNet (Y-400MF, Y-8GF)
+    - ConvNeXt (Base, Large)
+    - NFNet (F0)
+    - Vision Transformers (ViT, DeiT, Swin)
+    - CLIP models (ViT-B32, ViT-B16, RN50)
     """
 
     def __init__(self, model_variant="tf_efficientnet_b4.ns_jft_in1k"):
@@ -28,19 +35,58 @@ class EfficientNetFeatureExtractor(nn.Module):
         Initialize feature extractor with timm models.
 
         Args:
-            model_variant: Model architecture. Options:
+            model_variant: Model architecture. Examples:
+                EfficientNets:
                 - 'tf_efficientnet_b4.ns_jft_in1k': NoisyStudent (RECOMMENDED)
                 - 'tf_efficientnet_b4.ap_in1k': AdvProp
                 - 'tf_efficientnet_b4': Standard
+                - 'tf_efficientnet_b5', 'tf_efficientnet_b6'
+
+                Modern CNNs:
+                - 'resnest50d', 'resnest101e'
+                - 'regnety_400mf', 'regnety_8gf'
+                - 'convnext_base', 'convnext_large'
+                - 'nfnet_f0'
+
+                Vision Transformers:
+                - 'vit_base_patch16_224', 'vit_large_patch16_224'
+                - 'deit_base_distilled_patch16_224'
+                - 'swin_base_patch4_window7_224', 'swin_large_patch4_window7_224'
+
+                CLIP:
+                - 'vit_base_patch32_clip_224.openai' (or 'clip_vit_b32')
+                - 'vit_base_patch16_clip_224.openai' (or 'clip_vit_b16')
+                - 'resnet50.a1_in1k' (or 'clip_rn50')
         """
         super().__init__()
 
-        # Create model without classification head (num_classes=0)
-        self.model = timm.create_model(
-            model_variant,
-            pretrained=True,
-            num_classes=0,  # Remove classifier, return features only
-        )
+        # Handle CLIP model aliases
+        clip_aliases = {
+            "clip_vit_b32": "vit_base_patch32_clip_224.openai",
+            "clip_vit_b16": "vit_base_patch16_clip_224.openai",
+            "clip_rn50": "resnet50.a1_in1k",
+        }
+
+        actual_model_name = clip_aliases.get(model_variant, model_variant)
+        self.model_variant = model_variant
+
+        try:
+            # Create model without classification head (num_classes=0)
+            self.model = timm.create_model(
+                actual_model_name,
+                pretrained=True,
+                num_classes=0,  # Remove classifier, return features only
+            )
+        except Exception as e:
+            logger.error(f"Failed to load model '{actual_model_name}': {e}")
+            logger.info("Listing similar available models:")
+            similar = timm.list_models(f"*{model_variant.split('_')[0]}*", pretrained=True)
+            for model_name in similar[:10]:
+                logger.info(f"  - {model_name}")
+            raise ValueError(
+                f"Model '{model_variant}' not available in timm. "
+                f"Check similar models above or visit https://huggingface.co/timm"
+            ) from e
 
         # Set to eval mode
         self.model.eval()
@@ -50,9 +96,9 @@ class EfficientNetFeatureExtractor(nn.Module):
             param.requires_grad = False
 
         # Get feature dimension from model
-        self.feature_dim = self.model.num_features  # 1792 for B4
+        self.feature_dim = self.model.num_features
 
-        logger.info(f"Loaded {model_variant} with {self.feature_dim}D features")
+        logger.info(f"Loaded timm model '{actual_model_name}' with {self.feature_dim}D features")
 
     def forward(self, x):
         """
