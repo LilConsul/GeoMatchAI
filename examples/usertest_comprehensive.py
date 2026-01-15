@@ -32,10 +32,42 @@ from geomatchai.verification.verifier import LandmarkVerifier
 # ============================================================================
 
 MODEL_CONFIGS = [
-    ("torchvision", "b4", "TorchVision-B4"),
-    ("timm", "tf_efficientnet_b4.ns_jft_in1k", "TIMM-NoisyStudent"),
-    ("timm", "tf_efficientnet_b4.ap_in1k", "TIMM-AdvProp"),
+    # ----------------- TorchVision classic CNNs -----------------
+    ("torchvision", "resnet50", "ResNet50"),
+    ("torchvision", "resnet101", "ResNet101"),
+    ("torchvision", "resnet152", "ResNet152"),
+    ("torchvision", "densenet121", "DenseNet121"),
+    ("torchvision", "densenet169", "DenseNet169"),
+    ("torchvision", "mobilenet_v3_large", "MobileNetV3-Large"),
+    ("torchvision", "inception_v3", "InceptionV3"),
+
+    # ----------------- TIMM EfficientNets -----------------
     ("timm", "tf_efficientnet_b4", "TIMM-Standard"),
+    ("timm", "tf_efficientnet_b4.ap_in1k", "TIMM-AdvProp"),
+    ("timm", "tf_efficientnet_b4.ns_jft_in1k", "TIMM-NoisyStudent"),
+    ("timm", "tf_efficientnet_b5", "TIMM-EfficientNetB5"),
+    ("timm", "tf_efficientnet_b6", "TIMM-EfficientNetB6"),
+
+    # ----------------- TIMM modern CNNs -----------------
+    ("timm", "resnest50d", "ResNeSt50"),
+    ("timm", "resnest101e", "ResNeSt101"),
+    ("timm", "regnety_400mf", "RegNetY-400MF"),
+    ("timm", "regnety_8gf", "RegNetY-8GF"),
+    ("timm", "convnext_base", "ConvNeXt-Base"),
+    ("timm", "convnext_large", "ConvNeXt-Large"),
+    ("timm", "nfnet_f0", "NFNet-F0"),
+
+    # ----------------- TIMM Vision Transformers -----------------
+    ("timm", "vit_base_patch16_224", "ViT-Base"),
+    ("timm", "vit_large_patch16_224", "ViT-Large"),
+    ("timm", "deit_base_distilled_patch16_224", "DeiT-Base"),
+    ("timm", "swin_base_patch4_window7_224", "Swin-Base"),
+    ("timm", "swin_large_patch4_window7_224", "Swin-Large"),
+
+    # ----------------- CLIP embeddings -----------------
+    ("timm", "clip_vit_b32", "CLIP-ViT-B32"),
+    ("timm", "clip_vit_b16", "CLIP-ViT-B16"),
+    ("timm", "clip_rn50", "CLIP-RN50"),
 ]
 
 THRESHOLD = 0.65
