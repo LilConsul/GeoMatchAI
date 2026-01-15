@@ -15,6 +15,7 @@ dependencies = [
     "requests>=2.32.5",
     "mapillary>=1.0.15",
     "aiohttp>=3.13.2",
+    "torchinfo>=1.8.0",
 ]
 
 [dependency-groups]
