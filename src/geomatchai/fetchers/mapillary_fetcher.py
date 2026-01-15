@@ -46,7 +46,7 @@ class MapillaryFetcher(BaseFetcher):
 
     def __init__(
         self,
-        api_token: str,
+        api_token: str = config.get_mapillary_api_key(),
         request_timeout: float = config.fetcher.DEFAULT_REQUEST_TIMEOUT,
         max_retries: int = config.fetcher.DEFAULT_MAX_RETRIES,
     ):
