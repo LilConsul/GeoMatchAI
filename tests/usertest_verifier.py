@@ -114,14 +114,12 @@ async def test_single_model(
 
 def print_header(title: str, width: int = 100):
     """Print a formatted section header."""
-    print("\n" + "=" * width)
-    print(title.center(width))
-    print("=" * width)
+    print(f"\n{title}")
 
 
 def print_summary_table(all_results: dict[str, dict], display_names: dict[str, str]):
     """Print comparison table with preprocessing ON."""
-    print_header("📊 MODEL COMPARISON: WITH PREPROCESSING (Person Removal)")
+    print_header("Model Comparison: With Preprocessing (Person Removal)")
 
     print(f"\n{'Model':<30} {'Wawel':<10} {'Unrelated':<10} {'Gap':<10} {'Pass':<6}")
     print("-" * 70)
@@ -141,7 +139,7 @@ def print_summary_table(all_results: dict[str, dict], display_names: dict[str, s
         # Check if passes all tests
         wawel_pass = results["wawel_with_prep"]["verified"]
         unrel_reject = not results["unrelated_with_prep"]["verified"]
-        pass_status = "✅" if (wawel_pass and unrel_reject) else "❌"
+        pass_status = "PASS" if (wawel_pass and unrel_reject) else "FAIL"
 
         print(
             f"{display_names[model_key]:<30} {wawel:<10.4f} {unrel:<10.4f} {gap:<10.4f} {pass_status:<6}"
@@ -153,12 +151,12 @@ def print_summary_table(all_results: dict[str, dict], display_names: dict[str, s
 
     print("-" * 70)
     if best_model:
-        print(f"🏆 Best: {best_model} (Gap: {best_gap:.4f} = {best_gap * 100:.1f}%)")
+        print(f"Best: {best_model} (Gap: {best_gap:.4f} = {best_gap * 100:.1f}%)")
 
 
 def print_preprocessing_comparison(all_results: dict[str, dict], display_names: dict[str, str]):
     """Print detailed preprocessing impact analysis."""
-    print_header("🔬 PREPROCESSING IMPACT ANALYSIS")
+    print_header("Preprocessing Impact Analysis")
 
     print(f"\n{'Model':<30} {'Scenario':<15} {'Score':<10} {'Gap':<10} {'Impact':<12}")
     print("-" * 80)
@@ -197,23 +195,23 @@ def print_preprocessing_comparison(all_results: dict[str, dict], display_names: 
 
 def print_detailed_results(all_results: dict[str, dict], display_names: dict[str, str]):
     """Print complete detailed results for all models."""
-    print_header("📋 DETAILED RESULTS: ALL TEST CASES")
+    print_header("Detailed Results: All Test Cases")
 
     for model_key, results in all_results.items():
         if results is None:
             continue
 
-        print(f"\n🔹 {display_names[model_key]}")
+        print(f"\n{model_name}")
         print(f"   Gallery Size: {results['gallery_size']} images")
         print()
 
         # WITH Preprocessing
         print("   WITH Preprocessing (Person Removal):")
         print(
-            f"      Wawel Query:    {results['wawel_with_prep']['score']:.4f} {'✅ PASS' if results['wawel_with_prep']['verified'] else '❌ FAIL'}"
+            f"      Wawel Query:    {results['wawel_with_prep']['score']:.4f} {'PASS' if results['wawel_with_prep']['verified'] else 'FAIL'}"
         )
         print(
-            f"      Unrelated:      {results['unrelated_with_prep']['score']:.4f} {'✅ REJECT' if not results['unrelated_with_prep']['verified'] else '❌ ACCEPT'}"
+            f"      Unrelated:      {results['unrelated_with_prep']['score']:.4f} {'REJECT' if not results['unrelated_with_prep']['verified'] else 'ACCEPT'}"
         )
         print(
             f"      Gap:            {results['gap_with_prep']:.4f} ({results['gap_with_prep'] * 100:.1f}%)"
@@ -234,7 +232,7 @@ def print_detailed_results(all_results: dict[str, dict], display_names: dict[str
         wawel_no_prep_score = results["wawel_no_prep"]["score"]
         if wawel_no_prep_score > 0:
             wawel_impact_pct = (wawel_impact / wawel_no_prep_score) * 100
-            impact_indicator = "📉" if wawel_impact > 0 else "📈"
+            impact_indicator = "Decrease" if wawel_impact > 0 else "Increase"
             print(
                 f"   Preprocessing Impact: {impact_indicator} {wawel_impact:+.4f} ({wawel_impact_pct:+.1f}%)"
             )
@@ -242,7 +240,7 @@ def print_detailed_results(all_results: dict[str, dict], display_names: dict[str
 
 def print_recommendations(all_results: dict[str, dict], display_names: dict[str, str]):
     """Print actionable recommendations based on test results."""
-    print_header("💡 RECOMMENDATIONS & DIAGNOSIS")
+    print_header("Recommendations & Diagnosis")
 
     # Find best model
     best_gap = 0
@@ -261,7 +259,7 @@ def print_recommendations(all_results: dict[str, dict], display_names: dict[str,
     # Overall assessment
     print()
     if best_gap < 0.05:
-        print("❌ CRITICAL: Poor discrimination across all models (gap < 5%)")
+        print("CRITICAL: Poor discrimination across all models (gap < 5%)")
         print("\n   Action Items:")
         print("   1. Use Google Landmarks pre-trained models")
         print("   2. Add GeM (Generalized Mean) pooling layer")
@@ -269,7 +267,7 @@ def print_recommendations(all_results: dict[str, dict], display_names: dict[str,
         print("   4. Increase gallery size to 200+ images")
 
     elif best_gap < 0.15:
-        print("⚠️  WARNING: Weak discrimination (gap 5-15%)")
+        print("WARNING: Weak discrimination (gap 5-15%)")
         print(f"\n   Best Model: {best_model_name} (Gap: {best_gap:.1%})")
         print("\n   Action Items:")
         print("   1. Lower threshold from 0.65 to 0.50-0.55")
@@ -277,9 +275,9 @@ def print_recommendations(all_results: dict[str, dict], display_names: dict[str,
         print("   3. Use multiple reference galleries per landmark")
 
     elif best_gap < 0.30:
-        print("✅ GOOD: Acceptable discrimination (gap 15-30%)")
-        print(f"\n   🏆 Recommended Model: {best_model_name}")
-        print(f"   📊 Discrimination Gap: {best_gap:.1%}")
+        print("GOOD: Acceptable discrimination (gap 15-30%)")
+        print(f"\n   Recommended Model: {best_model_name}")
+        print(f"   Discrimination Gap: {best_gap:.1%}")
         print("\n   Production Settings:")
         print(f"      Model Type: {best_model_key.split('_')[0]}")
         print(f"      Variant: {best_model_key.split('_', 1)[1]}")
@@ -287,10 +285,10 @@ def print_recommendations(all_results: dict[str, dict], display_names: dict[str,
         print("      Preprocessing: ENABLE for user queries")
 
     else:
-        print("🎯 EXCELLENT: Strong discrimination (gap > 30%)")
-        print(f"\n   🏆 Recommended Model: {best_model_name}")
-        print(f"   📊 Discrimination Gap: {best_gap:.1%}")
-        print("\n   ✅ System is production-ready!")
+        print("EXCELLENT: Strong discrimination (gap > 30%)")
+        print(f"\n   Recommended Model: {best_model_name}")
+        print(f"   Discrimination Gap: {best_gap:.1%}")
+        print("\n   System is production-ready!")
         print("\n   Production Settings:")
         print(f"      Model Type: {best_model_key.split('_')[0]}")
         print(f"      Variant: {best_model_key.split('_', 1)[1]}")
@@ -311,12 +309,12 @@ def print_recommendations(all_results: dict[str, dict], display_names: dict[str,
         )
 
         if impact < -0.02:  # Preprocessing helps (score increases)
-            print(f"      ✅ Preprocessing HELPS this model (+{-impact:.1%})")
+            print(f"      Preprocessing HELPS this model (+{-impact:.1%})")
         elif impact > 0.05:  # Preprocessing hurts significantly
-            print(f"      ⚠️  Preprocessing HURTS this model (-{impact:.1%})")
+            print(f"      Preprocessing HURTS this model (-{impact:.1%})")
             print("         Consider using raw images or detection-based approach")
         else:
-            print("      ➡️  Preprocessing has minimal impact")
+            print("      Preprocessing has minimal impact")
 
 
 # ============================================================================
@@ -331,7 +329,7 @@ async def main():
 
     # Setup
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print("\n🚀 Starting Comprehensive Model Test Suite")
+    print("\nStarting Comprehensive Model Test Suite")
     print(f"   Device: {device}")
     print(f"   Threshold: {THRESHOLD}")
     print(f"   Gallery Size: {GALLERY_SIZE} images")
@@ -345,14 +343,18 @@ async def main():
         )
 
     # Fetch gallery images
-    print("\n📥 Fetching gallery images from Mapillary...")
+    print("\nFetching gallery images from Mapillary...")
     fetcher = MapillaryFetcher(mapillary_token)
     lat, lon = 50.054404, 19.935730  # Wawel Castle
 
     gallery_images = []
-    async for img in fetcher.get_images(lat, lon, num_images=GALLERY_SIZE, distance=100):
-        gallery_images.append(img)
-    print(f"✅ Cached {len(gallery_images)} gallery images")
+    try:
+        async for img in fetcher.get_images(lat, lon, num_images=GALLERY_SIZE, distance=100):
+            gallery_images.append(img)
+    except Exception as e:
+        print(f"Error fetching gallery: {e}")
+        return
+    print(f"Cached {len(gallery_images)} gallery images")
 
     # Load test images
     test_image_path = Path(__file__).parent / "input" / "wawel" / "test.png"
@@ -362,7 +364,7 @@ async def main():
     unrelated_image = Image.open(unrelated_image_path).convert("RGB")
 
     # Run tests for all models
-    print(f"\n🧪 Testing {len(MODEL_CONFIGS)} model configurations...")
+    print(f"\nTesting {len(MODEL_CONFIGS)} model configurations...")
     all_results = {}
     display_names = {}
 
@@ -376,9 +378,9 @@ async def main():
                 model_type, variant, gallery_images, query_image, unrelated_image, device
             )
             all_results[model_key] = results
-            print("   ✅ Complete")
+            print("   Complete")
         except Exception as e:
-            print(f"   ❌ Failed: {e}")
+            print(f"   Failed: {e}")
             all_results[model_key] = None
 
     # Display results
@@ -387,9 +389,7 @@ async def main():
     print_detailed_results(all_results, display_names)
     print_recommendations(all_results, display_names)
 
-    print("\n" + "=" * 100)
-    print("✅ Test suite completed!".center(100))
-    print("=" * 100 + "\n")
+    print("\nTest suite completed.")
 
 
 if __name__ == "__main__":

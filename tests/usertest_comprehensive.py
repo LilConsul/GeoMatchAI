@@ -248,7 +248,7 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
             row["threshold"] = THRESHOLD
             writer.writerow(row)
 
-    print(f"✅ Saved: {csv_path}")
+    print(f"Results saved: {csv_path}")
 
     # 2. Per-image aggregated results
     csv_path = output_dir / "results_by_image.csv"
@@ -308,7 +308,7 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
             }
             writer.writerow(row)
 
-    print(f"✅ Saved: {csv_path}")
+    print(f"Results saved: {csv_path}")
 
     # 3. Per-model aggregated results
     csv_path = output_dir / "results_by_model.csv"
@@ -390,7 +390,7 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
             }
             writer.writerow(row)
 
-    print(f"✅ Saved: {csv_path}")
+    print(f"Results saved: {csv_path}")
 
 
 # ============================================================================
@@ -405,9 +405,9 @@ async def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     print("\n" + "=" * 100)
-    print("🧪 COMPREHENSIVE TEST SUITE WITH CSV EXPORT".center(100))
+    print("COMPREHENSIVE TEST SUITE WITH CSV EXPORT".center(100))
     print("=" * 100)
-    print("\n📋 Configuration:")
+    print("\nConfiguration:")
     print(f"   Device: {device}")
     print(f"   Threshold: {THRESHOLD}")
     print(f"   Gallery Size: {GALLERY_SIZE} images")
@@ -422,40 +422,42 @@ async def main():
         )
 
     # Fetch gallery images (once)
-    print("\n📥 Fetching gallery images from Mapillary...")
+    print("\nFetching gallery images from Mapillary...")
     t_start_gallery = time.time()
     fetcher = MapillaryFetcher(mapillary_token)
     lat, lon = 50.054404, 19.935730
 
     gallery_images = []
-    async for img in fetcher.get_images(lat, lon, num_images=GALLERY_SIZE, distance=100):
-        gallery_images.append(img)
+    try:
+        async for img in fetcher.get_images(lat, lon, num_images=GALLERY_SIZE, distance=100):
+            gallery_images.append(img)
+    except Exception as e:
+        print(f"Error fetching gallery: {e}")
+        return
 
     t_gallery_fetch = time.time() - t_start_gallery
-    print(f"✅ Cached {len(gallery_images)} images (took {t_gallery_fetch:.2f}s)")
+    print(f"Cached {len(gallery_images)} images (took {t_gallery_fetch:.2f}s)")
 
     # Get test images
     test_images = get_test_images()
-    print(f"\n📸 Test Images: {len(test_images)}")
+    print(f"\nTest Images: {len(test_images)}")
     for _img_path, img_name, is_wawel in test_images:
-        status = "✓ Wawel" if is_wawel else "✗ Unrelated"
+        status = "Wawel" if is_wawel else "Unrelated"
         print(f"   {status:<15} {img_name}")
 
     # Calculate total tests
     total_tests = len(MODEL_CONFIGS) * len(test_images) * 2  # 2 preprocessing modes
-    print(f"\n🔢 Total test configurations: {total_tests}")
+    print(f"\nTotal test configurations: {total_tests}")
     print(f"   ({len(MODEL_CONFIGS)} models × {len(test_images)} images × 2 preprocessing modes)")
 
     # Run all tests
-    print("\n🚀 Starting tests...")
+    print("\nStarting tests...")
     all_results = []
     test_count = 0
     t_start_all = time.time()
 
     for model_type, model_variant, model_name in MODEL_CONFIGS:
-        print(f"\n{'=' * 80}")
-        print(f"Testing: {model_name}")
-        print(f"{'=' * 80}")
+        print(f"\nTesting: {model_name}")
 
         for img_path, img_name, is_wawel in test_images:
             for use_preprocessing in [True, False]:
@@ -483,9 +485,9 @@ async def main():
 
                 # Print result
                 if result["error"]:
-                    print(f"❌ ERROR: {result['error'][:50]}")
+                    print(f"ERROR: {result['error'][:50]}")
                 else:
-                    status = "✅" if result["is_correct"] else "❌"
+                    status = "PASS" if result["is_correct"] else "FAIL"
                     print(
                         f"{status} Score: {result['similarity_score']:.4f}, Time: {result['time_inference_s']:.3f}s"
                     )
@@ -493,23 +495,19 @@ async def main():
     t_total_all = time.time() - t_start_all
 
     # Save results to CSV
-    print(f"\n{'=' * 100}")
-    print("💾 SAVING RESULTS TO CSV FILES")
-    print(f"{'=' * 100}")
+    print("\nSaving results to CSV files...")
     save_results_to_csv(all_results, OUTPUT_DIR)
 
     # Print summary statistics
-    print(f"\n{'=' * 100}")
-    print("📊 SUMMARY STATISTICS")
-    print(f"{'=' * 100}")
+    print("\nSummary Statistics")
 
     total_correct = sum(1 for r in all_results if r["is_correct"])
     accuracy = total_correct / len(all_results) * 100 if all_results else 0
 
-    print(f"\n✅ Tests completed: {len(all_results)}")
-    print(f"✅ Overall accuracy: {accuracy:.1f}% ({total_correct}/{len(all_results)})")
-    print(f"⏱️  Total test time: {t_total_all:.2f}s")
-    print(f"⏱️  Average per test: {t_total_all / len(all_results):.2f}s")
+    print(f"\nTests completed: {len(all_results)}")
+    print(f"Overall accuracy: {accuracy:.1f}% ({total_correct}/{len(all_results)})")
+    print(f"Total test time: {t_total_all:.2f}s")
+    print(f"Average per test: {t_total_all / len(all_results):.2f}s")
 
     # Best model by accuracy
     model_accuracy = {}
@@ -521,7 +519,7 @@ async def main():
             model_accuracy[key]["correct"] += 1
         model_accuracy[key]["total"] += 1
 
-    print("\n🏆 Model Accuracy Rankings:")
+    print("\nModel Accuracy Rankings:")
     sorted_models = sorted(
         model_accuracy.items(), key=lambda x: x[1]["correct"] / x[1]["total"], reverse=True
     )
@@ -529,9 +527,7 @@ async def main():
         acc = stats["correct"] / stats["total"] * 100
         print(f"   {rank}. {model_name:<30} {acc:.1f}% ({stats['correct']}/{stats['total']})")
 
-    print(f"\n{'=' * 100}")
-    print("✅ ALL TESTS COMPLETED!".center(100))
-    print(f"{'=' * 100}\n")
+    print("\nAll tests completed.")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-from src.geomatchai.gallery.gallery_builder import GalleryBuilder
+from geomatchai.gallery.gallery_builder import GalleryBuilder
 
 if __name__ == "__main__":
     # Initialize gallery builder
@@ -13,10 +13,8 @@ if __name__ == "__main__":
 
     try:
         gallery_embeddings = builder.build_gallery(image_paths)
-        print(
-            f"Gallery shape: {gallery_embeddings.shape}"
-        )  # Should be (N, D) where N=len(image_paths), D=1792 for B4
-        print("Gallery built successfully!")
+        print(f"Gallery shape: {gallery_embeddings.shape}")
+        print("Gallery built successfully.")
 
         # Optional: Save embeddings for inspection
         import torch
