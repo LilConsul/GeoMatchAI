@@ -23,9 +23,9 @@ class EfficientNetFeatureExtractor(nn.Module):
     Supports:
     - EfficientNets (B4, B5, B6 with various training strategies)
     - ResNeSt (50d, 101e)
-    - RegNet (Y-400MF, Y-8GF)
+    - RegNet (Y-040, Y-080)
     - ConvNeXt (Base, Large)
-    - NFNet (F0)
+    - NFNet (dm_nfnet_f0)
     - Vision Transformers (ViT, DeiT, Swin)
     - CLIP models (ViT-B32, ViT-B16, RN50)
     """
@@ -44,9 +44,9 @@ class EfficientNetFeatureExtractor(nn.Module):
 
                 Modern CNNs:
                 - 'resnest50d', 'resnest101e'
-                - 'regnety_400mf', 'regnety_8gf'
+                - 'regnety_040', 'regnety_080'
                 - 'convnext_base', 'convnext_large'
-                - 'nfnet_f0'
+                - 'dm_nfnet_f0'
 
                 Vision Transformers:
                 - 'vit_base_patch16_224', 'vit_large_patch16_224'

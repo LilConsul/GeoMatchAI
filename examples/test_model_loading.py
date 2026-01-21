@@ -3,9 +3,10 @@ Quick test to verify all models can be loaded successfully.
 This should be run before the comprehensive test suite.
 """
 
-import torch
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import torch
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -22,30 +23,26 @@ MODEL_CONFIGS = [
     ("torchvision", "densenet169", "DenseNet169"),
     ("torchvision", "mobilenet_v3_large", "MobileNetV3-Large"),
     ("torchvision", "inception_v3", "InceptionV3"),
-
     # ----------------- TIMM EfficientNets -----------------
     ("timm", "tf_efficientnet_b4", "TIMM-Standard"),
     ("timm", "tf_efficientnet_b4.ap_in1k", "TIMM-AdvProp"),
     ("timm", "tf_efficientnet_b4.ns_jft_in1k", "TIMM-NoisyStudent"),
     ("timm", "tf_efficientnet_b5", "TIMM-EfficientNetB5"),
     ("timm", "tf_efficientnet_b6", "TIMM-EfficientNetB6"),
-
     # ----------------- TIMM modern CNNs -----------------
     ("timm", "resnest50d", "ResNeSt50"),
     ("timm", "resnest101e", "ResNeSt101"),
-    ("timm", "regnety_400mf", "RegNetY-400MF"),
-    ("timm", "regnety_8gf", "RegNetY-8GF"),
+    ("timm", "regnety_040", "RegNetY-040"),
+    ("timm", "regnety_080", "RegNetY-080"),
     ("timm", "convnext_base", "ConvNeXt-Base"),
     ("timm", "convnext_large", "ConvNeXt-Large"),
-    ("timm", "nfnet_f0", "NFNet-F0"),
-
+    ("timm", "dm_nfnet_f0", "NFNet-F0"),
     # ----------------- TIMM Vision Transformers -----------------
     ("timm", "vit_base_patch16_224", "ViT-Base"),
     ("timm", "vit_large_patch16_224", "ViT-Large"),
     ("timm", "deit_base_distilled_patch16_224", "DeiT-Base"),
     ("timm", "swin_base_patch4_window7_224", "Swin-Base"),
     ("timm", "swin_large_patch4_window7_224", "Swin-Large"),
-
     # ----------------- CLIP embeddings -----------------
     ("timm", "clip_vit_b32", "CLIP-ViT-B32"),
     ("timm", "clip_vit_b16", "CLIP-ViT-B16"),
@@ -68,9 +65,7 @@ def test_model_loading():
 
             # Try to create the builder
             builder = GalleryBuilder(
-                device=device,
-                model_type=model_type,
-                model_variant=model_variant
+                device=device, model_type=model_type, model_variant=model_variant
             )
 
             # Test a forward pass with dummy data
@@ -92,9 +87,9 @@ def test_model_loading():
             print(f"✗ FAILED: {str(e)}")
             failed_models.append((model_name, str(e)))
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"Results: {success_count}/{len(MODEL_CONFIGS)} models loaded successfully")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
 
     if failed_models:
         print(f"\nFailed models ({len(failed_models)}):")
@@ -108,8 +103,8 @@ def test_model_loading():
 
 if __name__ == "__main__":
     import os
+
     os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 
     success = test_model_loading()
     sys.exit(0 if success else 1)
-
