@@ -1,0 +1,50 @@
+================================================================================
+GeoMatchAI Model Analysis Report
+Generated: 2026-01-25 17:57:11
+================================================================================
+
+OVERALL STATISTICS
+--------------------------------------------------------------------------------
+Total tests: 1,296
+Overall accuracy: 60.80%
+Models tested: 27
+Landmarks tested: 4
+
+TOP 10 MODELS (WITH PREPROCESSING)
+--------------------------------------------------------------------------------
+ 1. CLIP-ViT-B16                        Acc: 87.50%  Gap: 0.184
+ 2. InceptionV3                         Acc: 79.17%  Gap: 0.119
+ 3. RegNetY-080                         Acc: 79.17%  Gap: 0.126
+ 4. DenseNet169                         Acc: 75.00%  Gap: 0.095
+ 5. MobileNetV3-Large                   Acc: 75.00%  Gap: 0.113
+ 6. RegNetY-040                         Acc: 75.00%  Gap: 0.121
+ 7. DenseNet121                         Acc: 70.83%  Gap: 0.081
+ 8. ResNeSt50                           Acc: 70.83%  Gap: 0.137
+ 9. CLIP-RN50                           Acc: 70.83%  Gap: 0.081
+10. ViT-Large                           Acc: 62.50%  Gap: 0.187
+
+TOP 10 MODELS (WITHOUT PREPROCESSING)
+--------------------------------------------------------------------------------
+ 1. ResNeSt50                           Acc: 79.17%  Gap: 0.089
+ 2. ResNeSt101                          Acc: 75.00%  Gap: 0.093
+ 3. RegNetY-040                         Acc: 75.00%  Gap: 0.107
+ 4. CLIP-RN50                           Acc: 75.00%  Gap: 0.068
+ 5. ResNet50                            Acc: 70.83%  Gap: 0.152
+ 6. InceptionV3                         Acc: 70.83%  Gap: 0.085
+ 7. RegNetY-080                         Acc: 70.83%  Gap: 0.153
+ 8. CLIP-ViT-B32                        Acc: 70.83%  Gap: 0.220
+ 9. CLIP-ViT-B16                        Acc: 70.83%  Gap: 0.200
+10. DenseNet121                         Acc: 66.67%  Gap: 0.061
+
+IMAGES GENERATED
+--------------------------------------------------------------------------------
+  ✓ model_accuracy_rankings.png
+  ✓ discrimination_gap.png
+  ✓ speed_vs_accuracy.png
+  ✓ landmark_analysis.png
+  ✓ model_heatmaps.png
+  ✓ preprocessing_impact.png
+  ✓ architecture_comparison.png
+  ✓ summary_dashboard.png
+
+================================================================================
