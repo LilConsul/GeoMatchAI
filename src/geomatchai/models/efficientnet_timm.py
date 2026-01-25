@@ -98,7 +98,79 @@ class EfficientNetFeatureExtractor(nn.Module):
         # Get feature dimension from model
         self.feature_dim = self.model.num_features
 
-        logger.info(f"Loaded timm model '{actual_model_name}' with {self.feature_dim}D features")
+        # Get model's expected input size from data config
+        self.input_size = self._get_input_size()
+
+        logger.info(f"Loaded timm model '{actual_model_name}' with {self.feature_dim}D features, input size: {self.input_size}")
+
+    def _get_input_size(self) -> tuple[int, int]:
+        """
+        Dynamically determine model's expected input size from its configuration.
+
+        TIMM models provide rich metadata through pretrained_cfg and default_cfg.
+        This method extracts the optimal input size for the model.
+
+        Returns:
+            Tuple of (height, width) for optimal input size
+        """
+        try:
+            # Priority 1: Check pretrained_cfg (most accurate)
+            if hasattr(self.model, 'pretrained_cfg') and self.model.pretrained_cfg is not None:
+                cfg = self.model.pretrained_cfg
+
+                # Try input_size field (format: (C, H, W))
+                if 'input_size' in cfg:
+                    input_size = cfg['input_size']
+                    if isinstance(input_size, (tuple, list)) and len(input_size) == 3:
+                        return (input_size[1], input_size[2])  # Return (H, W)
+
+                # Try test_input_size as fallback
+                if 'test_input_size' in cfg:
+                    test_size = cfg['test_input_size']
+                    if isinstance(test_size, (tuple, list)) and len(test_size) == 3:
+                        return (test_size[1], test_size[2])
+
+            # Priority 2: Check default_cfg
+            if hasattr(self.model, 'default_cfg') and self.model.default_cfg is not None:
+                cfg = self.model.default_cfg
+
+                if 'input_size' in cfg:
+                    input_size = cfg['input_size']
+                    if isinstance(input_size, (tuple, list)) and len(input_size) == 3:
+                        return (input_size[1], input_size[2])
+
+            # Priority 3: Architecture-specific intelligent defaults
+            # Based on model family characteristics and published papers
+            model_lower = self.model_variant.lower()
+
+            # Vision Transformers and CLIP models typically use 224x224
+            if any(x in model_lower for x in ['vit', 'deit', 'swin', 'clip', 'beit']):
+                return (224, 224)
+
+            # EfficientNets scale with variant (B4-B6 benefit from larger inputs)
+            if 'efficientnet' in model_lower:
+                if 'b7' in model_lower:
+                    return (600, 600)
+                elif 'b6' in model_lower:
+                    return (528, 528)
+                elif 'b5' in model_lower:
+                    return (456, 456)
+                elif 'b4' in model_lower:
+                    return (380, 380)
+                else:
+                    return (224, 224)
+
+            # ConvNeXt and modern CNNs
+            if any(x in model_lower for x in ['convnext', 'nfnet', 'resnest', 'regnet']):
+                return (224, 224)
+
+            # Default fallback
+            logger.info(f"Using default 224x224 for {self.model_variant}")
+            return (224, 224)
+
+        except Exception as e:
+            logger.warning(f"Error determining input size for {self.model_variant}: {e}, using 224x224")
+            return (224, 224)
 
     def forward(self, x):
         """

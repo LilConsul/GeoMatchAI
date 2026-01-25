@@ -68,6 +68,9 @@ class EfficientNetFeatureExtractor(nn.Module):
         # Load model with pretrained weights
         self.model = model_fn(weights=weights)
 
+        # Dynamically determine optimal input size from model weights configuration
+        self.input_size = self._get_optimal_input_size(weights)
+
         # Remove classifier based on architecture type
         if model_variant.startswith("resnet"):
             # ResNet: replace fc layer
@@ -94,6 +97,59 @@ class EfficientNetFeatureExtractor(nn.Module):
             param.requires_grad = False
 
         logger.info(f"Loaded TorchVision {model_variant} with {feature_dim}D features")
+
+    def _get_optimal_input_size(self, weights) -> tuple[int, int]:
+        """
+        Dynamically determine optimal input size from model weights configuration.
+
+        Args:
+            weights: TorchVision weights enum containing transform metadata
+
+        Returns:
+            Tuple of (height, width) for optimal input size
+        """
+        try:
+            # Try to extract from weights.transforms() metadata
+            if hasattr(weights, 'transforms'):
+                transforms = weights.transforms()
+
+                # Check if transforms have crop_size or resize_size
+                if hasattr(transforms, 'crop_size'):
+                    size = transforms.crop_size
+                    if isinstance(size, (list, tuple)):
+                        return (size[0], size[1])
+                    return (size, size)
+
+                if hasattr(transforms, 'resize_size'):
+                    size = transforms.resize_size
+                    if isinstance(size, (list, tuple)):
+                        # Use the larger dimension for square crop
+                        max_size = max(size) if len(size) > 0 else 224
+                        return (max_size, max_size)
+                    return (size, size)
+
+            # Fallback: Use architecture-specific optimal sizes
+            # Based on literature and empirical performance
+            arch_defaults = {
+                'efficientnet': 380,  # EfficientNet-B4 optimal
+                'resnet': 224,        # Standard ImageNet size
+                'densenet': 224,      # Standard ImageNet size
+                'mobilenet': 224,     # Efficient mobile size
+                'inception': 299,     # InceptionV3 requires 299x299
+            }
+
+            # Detect architecture from model variant
+            for arch_name, default_size in arch_defaults.items():
+                if self.model_variant.startswith(arch_name) or arch_name in self.model_variant:
+                    return (default_size, default_size)
+
+            # Ultimate fallback
+            logger.warning(f"Could not determine input size for {self.model_variant}, using 224x224")
+            return (224, 224)
+
+        except Exception as e:
+            logger.warning(f"Error determining input size for {self.model_variant}: {e}, using 224x224")
+            return (224, 224)
 
     def forward(self, x):
         """
