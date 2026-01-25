@@ -1,16 +1,17 @@
 """
 Comprehensive Test Suite with CSV Export and Timing
 
-Tests all possible combinations:
-- 7 test images (5 wawel + 2 unrelated)
-- 4 models (torchvision + 3 timm variants)
-- 2 preprocessing modes (with/without)
-- Timing measurements for each operation
+Automatically discovers and tests all image folders in ./input/:
+- Folders with cord.txt: Uses coordinates to fetch gallery images from Mapillary
+- Folders without cord.txt (e.g., 'unrelated'): Uses as negative test cases
+- Tests all models with/without preprocessing
+- Exports detailed CSV results with timing
 
-Outputs:
+Outputs (in ./output/csv/):
 - results_summary.csv: Main results with timing
 - results_by_image.csv: Per-image detailed results
 - results_by_model.csv: Per-model aggregated results
+- results_by_landmark.csv: Per-landmark aggregated results
 """
 
 import asyncio
@@ -18,6 +19,7 @@ import csv
 import os
 import time
 from collections.abc import AsyncGenerator
+from dataclasses import dataclass
 from pathlib import Path
 
 import torch
@@ -30,6 +32,21 @@ from geomatchai.verification.verifier import LandmarkVerifier
 # ============================================================================
 # Configuration
 # ============================================================================
+
+@dataclass
+class LandmarkTestCase:
+    """Represents a landmark folder with test images and gallery coordinates."""
+    name: str
+    folder_path: Path
+    has_coordinates: bool
+    lat: float | None = None
+    lon: float | None = None
+    test_images: list[Path] = None
+
+    def __post_init__(self):
+        if self.test_images is None:
+            self.test_images = []
+
 
 MODEL_CONFIGS = [
     # ----------------- TorchVision classic CNNs -----------------
@@ -68,51 +85,87 @@ MODEL_CONFIGS = [
 
 THRESHOLD = 0.65
 GALLERY_SIZE = 200
-OUTPUT_DIR = Path(__file__).parent / "output" / "csv"  # Relative to test file, not CWD
+GALLERY_DISTANCE = 100  # meters
+INPUT_DIR = Path(__file__).parent / "input"
+OUTPUT_DIR = Path(__file__).parent / "output" / "csv"
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 
 # ============================================================================
-# Test Images Configuration
+# Folder Discovery and Test Case Loading
 # ============================================================================
 
 
-def get_test_images() -> list[tuple[str, str, bool]]:
+def parse_coordinates(cord_file: Path) -> tuple[float, float] | None:
     """
-    Return list of test images with metadata.
-    Returns: List of (image_path, image_name, is_wawel)
+    Parse coordinates from cord.txt file.
+    Expected format: "lat, lon" on first line.
+    Returns: (lat, lon) tuple or None if file doesn't exist/parse error
     """
-    base_path = Path(__file__).parent / "input"
+    try:
+        if not cord_file.exists():
+            return None
 
-    test_images = []
+        content = cord_file.read_text().strip()
+        lat_str, lon_str = content.split(",")
+        lat = float(lat_str.strip())
+        lon = float(lon_str.strip())
+        return lat, lon
+    except Exception as e:
+        print(f"Warning: Could not parse {cord_file}: {e}")
+        return None
 
-    # Wawel images (related - should PASS)
-    wawel_dir = base_path / "wawel"
-    wawel_images = [
-        "test.png",
-        "wawel1.jpg",
-        "wawel2.jpg",
-        "wawel3.jpg",
-        "wawel4.jpg",
-        "wawel5.jpg",
-    ]
 
-    for img_name in wawel_images:
-        img_path = wawel_dir / img_name
-        if img_path.exists():
-            test_images.append((str(img_path), f"wawel_{img_name}", True))
+def discover_test_cases(input_dir: Path) -> list[LandmarkTestCase]:
+    """
+    Automatically discover all landmark test cases from input directory.
 
-    # Unrelated images (should REJECT)
-    unrelated_images = [
-        "photo_2024-07-21_12-07-58.jpg",
-        "photo_2025-11-21_10-07-59.jpg",
-    ]
+    Returns:
+        List of LandmarkTestCase objects, one per folder in input_dir
+    """
+    test_cases = []
 
-    for img_name in unrelated_images:
-        img_path = base_path / img_name
-        if img_path.exists():
-            test_images.append((str(img_path), f"unrelated_{img_name}", False))
+    if not input_dir.exists():
+        print(f"Error: Input directory not found: {input_dir}")
+        return test_cases
 
-    return test_images
+    # Iterate through all subdirectories
+    for folder in sorted(input_dir.iterdir()):
+        if not folder.is_dir():
+            continue
+
+        landmark_name = folder.name
+        cord_file = folder / "cord.txt"
+
+        # Parse coordinates if cord.txt exists
+        coordinates = parse_coordinates(cord_file)
+        has_coordinates = coordinates is not None
+        lat, lon = coordinates if has_coordinates else (None, None)
+
+        # Find all image files in folder
+        test_images = []
+        for file in sorted(folder.iterdir()):
+            if file.is_file() and file.suffix.lower() in IMAGE_EXTENSIONS:
+                test_images.append(file)
+
+        # Create test case
+        test_case = LandmarkTestCase(
+            name=landmark_name,
+            folder_path=folder,
+            has_coordinates=has_coordinates,
+            lat=lat,
+            lon=lon,
+            test_images=test_images
+        )
+
+        test_cases.append(test_case)
+
+        # Log discovery
+        coord_status = f"({lat:.6f}, {lon:.6f})" if has_coordinates else "NO COORDINATES"
+        print(f"   Found: {landmark_name:<15} {len(test_images)} images  {coord_status}")
+
+    return test_cases
+
 
 
 # ============================================================================
@@ -124,9 +177,9 @@ async def test_single_configuration(
     builder: GalleryBuilder,
     gallery_embeddings: torch.Tensor,
     model_name: str,
-    test_image_path: str,
-    test_image_name: str,
-    is_wawel: bool,
+    landmark_name: str,
+    test_image_path: Path,
+    is_related: bool,
     use_preprocessing: bool,
     device: str,
     threshold: float,
@@ -137,8 +190,10 @@ async def test_single_configuration(
         "model_type": builder.model_type,
         "model_variant": builder.model_variant,
         "model_name": model_name,
-        "image_name": test_image_name,
-        "is_wawel": is_wawel,
+        "landmark_name": landmark_name,
+        "image_name": test_image_path.name,
+        "image_path": str(test_image_path),
+        "is_related": is_related,
         "preprocessing": use_preprocessing,
     }
 
@@ -172,7 +227,7 @@ async def test_single_configuration(
         t_total = t_preprocess + t_feature_extract + t_verify
 
         # Determine if result is correct
-        expected_result = is_wawel  # Wawel should verify, unrelated should not
+        expected_result = is_related  # Related images should verify, unrelated should not
         is_correct = is_verified == expected_result
 
         results.update(
@@ -182,7 +237,6 @@ async def test_single_configuration(
                 "expected_verified": expected_result,
                 "is_correct": is_correct,
                 "gallery_size": gallery_embeddings.shape[0],
-                "time_gallery_build_s": 0.0,  # Gallery built once per model, not per test
                 "time_preprocess_s": t_preprocess,
                 "time_feature_extract_s": t_feature_extract,
                 "time_verify_s": t_verify,
@@ -202,10 +256,9 @@ async def test_single_configuration(
             {
                 "similarity_score": 0.0,
                 "is_verified": False,
-                "expected_verified": is_wawel,
+                "expected_verified": is_related,
                 "is_correct": False,
                 "gallery_size": 0,
-                "time_gallery_build_s": 0.0,
                 "time_preprocess_s": 0.0,
                 "time_feature_extract_s": 0.0,
                 "time_verify_s": 0.0,
@@ -233,8 +286,10 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
         "model_name",
         "model_type",
         "model_variant",
+        "landmark_name",
         "image_name",
-        "is_wawel",
+        "image_path",
+        "is_related",
         "preprocessing",
         "similarity_score",
         "is_verified",
@@ -242,7 +297,6 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
         "is_correct",
         "gallery_size",
         "threshold",
-        "time_gallery_build_s",
         "time_preprocess_s",
         "time_feature_extract_s",
         "time_verify_s",
@@ -266,11 +320,12 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
     image_stats = {}
 
     for result in all_results:
-        key = (result["image_name"], result["preprocessing"])
+        key = (result["landmark_name"], result["image_name"], result["preprocessing"])
         if key not in image_stats:
             image_stats[key] = {
+                "landmark_name": result["landmark_name"],
                 "image_name": result["image_name"],
-                "is_wawel": result["is_wawel"],
+                "is_related": result["is_related"],
                 "preprocessing": result["preprocessing"],
                 "scores": [],
                 "correct_count": 0,
@@ -283,8 +338,9 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
         image_stats[key]["total_count"] += 1
 
     fieldnames = [
+        "landmark_name",
         "image_name",
-        "is_wawel",
+        "is_related",
         "preprocessing",
         "avg_score",
         "min_score",
@@ -304,8 +360,9 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
 
             scores = stats["scores"]
             row = {
+                "landmark_name": stats["landmark_name"],
                 "image_name": stats["image_name"],
-                "is_wawel": stats["is_wawel"],
+                "is_related": stats["is_related"],
                 "preprocessing": stats["preprocessing"],
                 "avg_score": sum(scores) / len(scores) if scores else 0,
                 "min_score": min(scores) if scores else 0,
@@ -331,15 +388,15 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
             model_stats[key] = {
                 "model_name": result["model_name"],
                 "preprocessing": result["preprocessing"],
-                "wawel_scores": [],
+                "related_scores": [],
                 "unrelated_scores": [],
                 "correct_count": 0,
                 "total_count": 0,
                 "time_inference": [],
             }
 
-        if result["is_wawel"]:
-            model_stats[key]["wawel_scores"].append(result["similarity_score"])
+        if result["is_related"]:
+            model_stats[key]["related_scores"].append(result["similarity_score"])
         else:
             model_stats[key]["unrelated_scores"].append(result["similarity_score"])
 
@@ -351,7 +408,7 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
     fieldnames = [
         "model_name",
         "preprocessing",
-        "avg_wawel_score",
+        "avg_related_score",
         "avg_unrelated_score",
         "discrimination_gap",
         "accuracy",
@@ -367,9 +424,9 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
         writer.writeheader()
 
         for stats in model_stats.values():
-            wawel_avg = (
-                sum(stats["wawel_scores"]) / len(stats["wawel_scores"])
-                if stats["wawel_scores"]
+            related_avg = (
+                sum(stats["related_scores"]) / len(stats["related_scores"])
+                if stats["related_scores"]
                 else 0
             )
             unrelated_avg = (
@@ -381,9 +438,9 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
             row = {
                 "model_name": stats["model_name"],
                 "preprocessing": stats["preprocessing"],
-                "avg_wawel_score": wawel_avg,
+                "avg_related_score": related_avg,
                 "avg_unrelated_score": unrelated_avg,
-                "discrimination_gap": wawel_avg - unrelated_avg,
+                "discrimination_gap": related_avg - unrelated_avg,
                 "accuracy": stats["correct_count"] / stats["total_count"]
                 if stats["total_count"] > 0
                 else 0,
@@ -398,6 +455,62 @@ def save_results_to_csv(all_results: list[dict], output_dir: Path):
                 "max_inference_time_s": max(stats["time_inference"])
                 if stats["time_inference"]
                 else 0,
+            }
+            writer.writerow(row)
+
+    print(f"Results saved: {csv_path}")
+
+    # 4. Per-landmark aggregated results
+    csv_path = output_dir / "results_by_landmark.csv"
+    landmark_stats = {}
+
+    for result in all_results:
+        key = (result["landmark_name"], result["preprocessing"])
+        if key not in landmark_stats:
+            landmark_stats[key] = {
+                "landmark_name": result["landmark_name"],
+                "is_related": result["is_related"],
+                "preprocessing": result["preprocessing"],
+                "scores": [],
+                "correct_count": 0,
+                "total_count": 0,
+            }
+
+        landmark_stats[key]["scores"].append(result["similarity_score"])
+        if result["is_correct"]:
+            landmark_stats[key]["correct_count"] += 1
+        landmark_stats[key]["total_count"] += 1
+
+    fieldnames = [
+        "landmark_name",
+        "is_related",
+        "preprocessing",
+        "avg_score",
+        "min_score",
+        "max_score",
+        "accuracy",
+        "correct_count",
+        "total_count",
+    ]
+
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for stats in landmark_stats.values():
+            scores = stats["scores"]
+            row = {
+                "landmark_name": stats["landmark_name"],
+                "is_related": stats["is_related"],
+                "preprocessing": stats["preprocessing"],
+                "avg_score": sum(scores) / len(scores) if scores else 0,
+                "min_score": min(scores) if scores else 0,
+                "max_score": max(scores) if scores else 0,
+                "accuracy": stats["correct_count"] / stats["total_count"]
+                if stats["total_count"] > 0
+                else 0,
+                "correct_count": stats["correct_count"],
+                "total_count": stats["total_count"],
             }
             writer.writerow(row)
 
@@ -422,6 +535,7 @@ async def main():
     print(f"   Device: {device}")
     print(f"   Threshold: {THRESHOLD}")
     print(f"   Gallery Size: {GALLERY_SIZE} images")
+    print(f"   Gallery Distance: {GALLERY_DISTANCE}m")
     print(f"   Models: {len(MODEL_CONFIGS)}")
 
     # Get API token
@@ -432,103 +546,180 @@ async def main():
             "Get your token from: https://www.mapillary.com/dashboard/developers"
         )
 
-    # Fetch gallery images (once)
-    print("\nFetching gallery images from Mapillary...")
-    t_start_gallery = time.time()
-    fetcher = MapillaryFetcher(mapillary_token)
-    lat, lon = 50.054404, 19.935730
+    # Discover test cases
+    print("\n" + "=" * 100)
+    print("DISCOVERING TEST CASES".center(100))
+    print("=" * 100)
+    test_cases = discover_test_cases(INPUT_DIR)
 
-    gallery_images = []
-    try:
-        async for img in fetcher.get_images(lat, lon, num_images=GALLERY_SIZE, distance=100):
-            gallery_images.append(img)
-    except Exception as e:
-        print(f"Error fetching gallery: {e}")
+    if not test_cases:
+        print(f"Error: No test cases found in {INPUT_DIR}")
         return
 
-    t_gallery_fetch = time.time() - t_start_gallery
-    print(f"Cached {len(gallery_images)} images (took {t_gallery_fetch:.2f}s)")
+    # Fetch gallery images for each landmark with coordinates
+    print("\n" + "=" * 100)
+    print("FETCHING GALLERY IMAGES".center(100))
+    print("=" * 100)
 
-    # Get test images
-    test_images = get_test_images()
-    print(f"\nTest Images: {len(test_images)}")
-    for _img_path, img_name, is_wawel in test_images:
-        status = "Wawel" if is_wawel else "Unrelated"
-        print(f"   {status:<15} {img_name}")
+    fetcher = MapillaryFetcher(mapillary_token)
+    galleries = {}  # landmark_name -> list[Image]
+
+    for test_case in test_cases:
+        if test_case.has_coordinates:
+            print(f"\nFetching gallery for: {test_case.name}")
+            print(f"   Coordinates: ({test_case.lat:.6f}, {test_case.lon:.6f})")
+            print(f"   Distance: {GALLERY_DISTANCE}m, Target size: {GALLERY_SIZE} images")
+
+            t_start = time.time()
+            gallery_images = []
+            try:
+                async for img in fetcher.get_images(
+                    test_case.lat,
+                    test_case.lon,
+                    num_images=GALLERY_SIZE,
+                    distance=GALLERY_DISTANCE
+                ):
+                    gallery_images.append(img)
+            except Exception as e:
+                print(f"   Error fetching gallery: {e}")
+                continue
+
+            t_fetch = time.time() - t_start
+            galleries[test_case.name] = gallery_images
+            print(f"   Fetched {len(gallery_images)} images in {t_fetch:.2f}s")
+        else:
+            print(f"\nSkipping gallery fetch for: {test_case.name} (no coordinates)")
 
     # Calculate total tests
-    total_tests = len(MODEL_CONFIGS) * len(test_images) * 2  # 2 preprocessing modes
+    total_test_images = sum(len(tc.test_images) for tc in test_cases)
+    total_tests = len(MODEL_CONFIGS) * total_test_images * 2  # 2 preprocessing modes
+
+    print("\n" + "=" * 100)
+    print("TEST EXECUTION PLAN".center(100))
+    print("=" * 100)
+    print(f"\nTotal test images: {total_test_images}")
+    for tc in test_cases:
+        print(f"   {tc.name:<15} {len(tc.test_images)} images  {'(with gallery)' if tc.has_coordinates else '(negative case)'}")
+
     print(f"\nTotal test configurations: {total_tests}")
-    print(f"   ({len(MODEL_CONFIGS)} models × {len(test_images)} images × 2 preprocessing modes)")
+    print(f"   ({len(MODEL_CONFIGS)} models × {total_test_images} images × 2 preprocessing modes)")
 
     # Run all tests
-    print("\nStarting tests...")
+    print("\n" + "=" * 100)
+    print("RUNNING TESTS".center(100))
+    print("=" * 100)
+
     all_results = []
     test_count = 0
     t_start_all = time.time()
 
     for model_type, model_variant, model_name in MODEL_CONFIGS:
-        print(f"\nTesting: {model_name}")
+        print(f"\n{'=' * 100}")
+        print(f"Testing: {model_name}")
+        print(f"{'=' * 100}")
 
-        # Build gallery once per model
-        t_start = time.time()
-        builder = GalleryBuilder(device=device, model_type=model_type, model_variant=model_variant)
+        # Build galleries once per model (for each landmark with coordinates)
+        model_galleries = {}  # landmark_name -> gallery_embeddings
 
-        async def image_gen() -> AsyncGenerator[Image.Image]:
-            for img in gallery_images:
-                yield img
+        for test_case in test_cases:
+            if not test_case.has_coordinates or test_case.name not in galleries:
+                continue
 
-        gallery_embeddings = await builder.build_gallery(image_gen(), skip_preprocessing=True)
-        t_gallery_build = time.time() - t_start
-        print(f"Gallery built in {t_gallery_build:.2f}s")
+            print(f"\nBuilding gallery for {test_case.name}...")
+            t_start = time.time()
 
-        for img_path, img_name, is_wawel in test_images:
-            for use_preprocessing in [True, False]:
-                test_count += 1
-                prep_str = "WITH" if use_preprocessing else "WITHOUT"
-
-                print(
-                    f"  [{test_count}/{total_tests}] {img_name} ({prep_str} preprocessing)...",
-                    end=" ",
+            try:
+                builder = GalleryBuilder(
+                    device=device,
+                    model_type=model_type,
+                    model_variant=model_variant
                 )
 
-                result = await test_single_configuration(
-                    builder,
-                    gallery_embeddings,
-                    model_name,
-                    img_path,
-                    img_name,
-                    is_wawel,
-                    use_preprocessing,
-                    device,
-                    THRESHOLD,
-                )
+                async def image_gen() -> AsyncGenerator[Image.Image, None]:
+                    for img in galleries[test_case.name]:
+                        yield img
 
-                all_results.append(result)
+                gallery_embeddings = await builder.build_gallery(image_gen(), skip_preprocessing=True)
+                model_galleries[test_case.name] = (builder, gallery_embeddings)
 
-                # Print result
-                if result["error"]:
-                    print(f"ERROR: {result['error'][:50]}")
-                else:
-                    status = "PASS" if result["is_correct"] else "FAIL"
+                t_gallery_build = time.time() - t_start
+                print(f"   Gallery built: {gallery_embeddings.shape[0]} embeddings in {t_gallery_build:.2f}s")
+
+            except Exception as e:
+                print(f"   Error building gallery: {e}")
+                continue
+
+        # Test all images for this model
+        for test_case in test_cases:
+            print(f"\nTesting images from: {test_case.name}")
+
+            # Determine gallery to use
+            if test_case.has_coordinates and test_case.name in model_galleries:
+                # Use own gallery
+                builder, gallery_embeddings = model_galleries[test_case.name]
+                is_related = True
+            elif len(model_galleries) > 0:
+                # Use first available gallery (for negative testing)
+                first_landmark = next(iter(model_galleries.keys()))
+                builder, gallery_embeddings = model_galleries[first_landmark]
+                is_related = False
+            else:
+                print(f"   Skipping (no gallery available)")
+                continue
+
+            # Test each image
+            for test_image_path in test_case.test_images:
+                for use_preprocessing in [True, False]:
+                    test_count += 1
+                    prep_str = "WITH" if use_preprocessing else "WITHOUT"
+
                     print(
-                        f"{status} Score: {result['similarity_score']:.4f}, Time: {result['time_inference_s']:.3f}s"
+                        f"   [{test_count}/{total_tests}] {test_image_path.name} ({prep_str} preprocessing)...",
+                        end=" ",
                     )
 
+                    result = await test_single_configuration(
+                        builder,
+                        gallery_embeddings,
+                        model_name,
+                        test_case.name,
+                        test_image_path,
+                        is_related,
+                        use_preprocessing,
+                        device,
+                        THRESHOLD,
+                    )
+
+                    all_results.append(result)
+
+                    # Print result
+                    if result["error"]:
+                        print(f"ERROR: {result['error'][:50]}")
+                    else:
+                        status = "✓ PASS" if result["is_correct"] else "✗ FAIL"
+                        print(
+                            f"{status} Score: {result['similarity_score']:.4f}, Time: {result['time_inference_s']:.3f}s"
+                        )
+
         # Clean up after model
-        del builder
-        del gallery_embeddings
+        for builder, gallery_embeddings in model_galleries.values():
+            del builder
+            del gallery_embeddings
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
     t_total_all = time.time() - t_start_all
 
     # Save results to CSV
-    print("\nSaving results to CSV files...")
+    print("\n" + "=" * 100)
+    print("SAVING RESULTS".center(100))
+    print("=" * 100)
     save_results_to_csv(all_results, OUTPUT_DIR)
 
     # Print summary statistics
-    print("\nSummary Statistics")
+    print("\n" + "=" * 100)
+    print("SUMMARY STATISTICS".center(100))
+    print("=" * 100)
 
     total_correct = sum(1 for r in all_results if r["is_correct"])
     accuracy = total_correct / len(all_results) * 100 if all_results else 0
@@ -552,11 +743,28 @@ async def main():
     sorted_models = sorted(
         model_accuracy.items(), key=lambda x: x[1]["correct"] / x[1]["total"], reverse=True
     )
-    for rank, (model_name, stats) in enumerate(sorted_models, 1):
+    for rank, (model_name, stats) in enumerate(sorted_models[:10], 1):  # Top 10
         acc = stats["correct"] / stats["total"] * 100
-        print(f"   {rank}. {model_name:<30} {acc:.1f}% ({stats['correct']}/{stats['total']})")
+        print(f"   {rank:2d}. {model_name:<30} {acc:.1f}% ({stats['correct']}/{stats['total']})")
 
-    print("\nAll tests completed.")
+    # Per-landmark breakdown
+    print("\nAccuracy by Landmark:")
+    landmark_accuracy = {}
+    for result in all_results:
+        key = result["landmark_name"]
+        if key not in landmark_accuracy:
+            landmark_accuracy[key] = {"correct": 0, "total": 0}
+        if result["is_correct"]:
+            landmark_accuracy[key]["correct"] += 1
+        landmark_accuracy[key]["total"] += 1
+
+    for landmark_name, stats in sorted(landmark_accuracy.items()):
+        acc = stats["correct"] / stats["total"] * 100
+        print(f"   {landmark_name:<15} {acc:.1f}% ({stats['correct']}/{stats['total']})")
+
+    print("\n" + "=" * 100)
+    print("ALL TESTS COMPLETED".center(100))
+    print("=" * 100)
 
 
 if __name__ == "__main__":
