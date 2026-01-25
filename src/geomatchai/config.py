@@ -37,7 +37,7 @@ class ModelConfig:
     """Model configuration constants."""
 
     DEFAULT_MODEL_TYPE: str = "timm"
-    DEFAULT_TIMM_VARIANT: str = "tf_efficientnet_b4.ns_jft_in1k"
+    DEFAULT_TIMM_VARIANT: str = "vit_base_patch16_clip_224"
     DEFAULT_TORCHVISION_VARIANT: str = "b4"
     EFFICIENTNET_B4_FEATURES: int = 1792
     EFFICIENTNET_B5_FEATURES: int = 2048

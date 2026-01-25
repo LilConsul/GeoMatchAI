@@ -204,7 +204,7 @@ verifier = await GeoMatchAI.create(
     threshold=0.65,               # Verification threshold
     device="auto",                # cuda/cpu/auto
     model_type="timm",            # timm or torchvision
-    model_variant="clip_vit_b16", # Model variant
+    model_variant="vit_base_patch16_clip_224",  # Model variant (default: CLIP-ViT-B16)
 )
 ```
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "GeoMatchAI"
-version = "0.1.0"
+version = "1.0.0"
 description = "High-Performance Visual Place Verification System"
 requires-python = "==3.13.*"
 dependencies = [
