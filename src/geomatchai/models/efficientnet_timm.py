@@ -9,7 +9,6 @@ ConvNeXt, Vision Transformers, and CLIP models.
 import logging
 
 import timm
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -209,6 +208,29 @@ class LandmarkEfficientNet(nn.Module):
                 param.requires_grad = False
 
         self.feature_dim = self.models[0].num_features
+
+        # Get input size from first model's config (all EfficientNet-B4 variants use same size)
+        self.input_size = self._get_input_size_from_model(self.models[0])
+
+    def _get_input_size_from_model(self, model) -> tuple[int, int]:
+        """Extract input size from a timm model instance."""
+        try:
+            if hasattr(model, 'pretrained_cfg') and model.pretrained_cfg is not None:
+                if 'input_size' in model.pretrained_cfg:
+                    input_size = model.pretrained_cfg['input_size']
+                    if isinstance(input_size, (tuple, list)) and len(input_size) == 3:
+                        return (input_size[1], input_size[2])
+
+            if hasattr(model, 'default_cfg') and model.default_cfg is not None:
+                if 'input_size' in model.default_cfg:
+                    input_size = model.default_cfg['input_size']
+                    if isinstance(input_size, (tuple, list)) and len(input_size) == 3:
+                        return (input_size[1], input_size[2])
+
+            # EfficientNet-B4 default
+            return (380, 380)
+        except Exception:
+            return (380, 380)
 
     def forward(self, x):
         """Extract features using ensemble averaging."""

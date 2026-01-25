@@ -22,18 +22,24 @@ logger = logging.getLogger(__name__)
 
 
 class Preprocessor:
-    def __init__(self, device: str | None = None):
+    def __init__(self, device: str | None = None, target_size: tuple[int, int] | None = None):
         """
         Initialize Preprocessor with person segmentation model.
 
         Args:
             device: Device to use ("cuda" or "cpu").
                    If None, uses config.get_device() or auto-detects.
+            target_size: Target size for image resizing (H, W).
+                        If None, uses config.preprocessing.TARGET_SIZE.
+                        This should match the feature extractor's expected input size.
         """
         # Priority: instance parameter > global config > auto-detect
         self.device = get_effective_device(device)
 
-        logger.info(f"Initializing Preprocessor on device: {self.device}")
+        # Set target size (use provided or default from config)
+        self.target_size = target_size or config.preprocessing.TARGET_SIZE
+
+        logger.info(f"Initializing Preprocessor on device: {self.device}, target size: {self.target_size}")
         self.model = deeplabv3_resnet101(
             weights=DeepLabV3_ResNet101_Weights.COCO_WITH_VOC_LABELS_V1, progress=True
         ).to(self.device)
@@ -43,7 +49,7 @@ class Preprocessor:
         # Transforms for input image (resize to target size as per DeepLabV3 input)
         self.transform = T.Compose(
             [
-                T.Resize(config.preprocessing.TARGET_SIZE),
+                T.Resize(self.target_size),
                 T.ToTensor(),
                 T.Normalize(mean=config.preprocessing.MEAN, std=config.preprocessing.STD),
             ]
@@ -114,7 +120,7 @@ class Preprocessor:
             Cleaned image tensor of shape (3, H, W) with person removed.
         """
         # Resize and convert to tensor
-        resized_image = T.Resize(config.preprocessing.TARGET_SIZE)(image)
+        resized_image = T.Resize(self.target_size)(image)
         image_tensor = T.ToTensor()(resized_image).to(self.device)
 
         # Calculate per-channel mean (better color preservation than global mean)

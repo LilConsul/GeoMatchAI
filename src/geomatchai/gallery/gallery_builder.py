@@ -70,9 +70,8 @@ class GalleryBuilder:
 
         self.model_type = model_type
         self.model_variant = model_variant
-        self.preprocessor = Preprocessor(device=self.device)
 
-        # Load appropriate feature extractor
+        # Load appropriate feature extractor FIRST (to get input_size)
         if model_type == "torchvision":
             from ..models.efficientnet import EfficientNetFeatureExtractor
 
@@ -102,6 +101,11 @@ class GalleryBuilder:
                 f"Unknown model_type: {model_type}. "
                 f"Choose from: 'torchvision', 'timm', 'timm_ensemble'"
             )
+
+        # Now create preprocessor with model's input size
+        target_size = self.feature_extractor.input_size
+        self.preprocessor = Preprocessor(device=self.device, target_size=target_size)
+        logger.info(f"GalleryBuilder initialized with target size: {target_size}")
 
     async def build_gallery(
         self,
