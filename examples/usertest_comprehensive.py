@@ -29,6 +29,7 @@ from geomatchai.fetchers.mapillary_fetcher import MapillaryFetcher
 from geomatchai.gallery.gallery_builder import GalleryBuilder
 from geomatchai.verification.verifier import LandmarkVerifier
 
+
 # ============================================================================
 # Configuration
 # ============================================================================
@@ -91,6 +92,203 @@ GALLERY_DISTANCE = 100  # meters
 INPUT_DIR = Path(__file__).parent / "input"
 OUTPUT_DIR = Path(__file__).parent / "output" / "csv"
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+
+
+# ============================================================================
+# TUI Output Formatting
+# ============================================================================
+
+
+class TUIFormatter:
+    """Clean TUI-style output formatting."""
+
+    # Box drawing characters
+    H_LINE = "-"
+    V_LINE = "|"
+    CORNER_TL = "+"
+    CORNER_TR = "+"
+    CORNER_BL = "+"
+    CORNER_BR = "+"
+    T_LEFT = "+"
+    T_RIGHT = "+"
+    T_TOP = "+"
+    T_BOTTOM = "+"
+    CROSS = "+"
+
+    # Progress bar characters
+    PROGRESS_FULL = "#"
+    PROGRESS_EMPTY = "-"
+
+    # Width settings
+    WIDTH = 100
+
+    @staticmethod
+    def header(title: str, char: str = "=") -> str:
+        """Create a centered header."""
+        return f"\n{char * TUIFormatter.WIDTH}\n{title.center(TUIFormatter.WIDTH)}\n{char * TUIFormatter.WIDTH}"
+
+    @staticmethod
+    def subheader(title: str, char: str = "-") -> str:
+        """Create a subheader."""
+        return f"\n{char * TUIFormatter.WIDTH}\n{title}\n{char * TUIFormatter.WIDTH}"
+
+    @staticmethod
+    def progress_bar(current: int, total: int, width: int = 20) -> str:
+        """Create a text progress bar."""
+        if total == 0:
+            return "[" + TUIFormatter.PROGRESS_EMPTY * width + "]"
+        progress = current / total
+        filled = int(width * progress)
+        return (
+            "["
+            + TUIFormatter.PROGRESS_FULL * filled
+            + TUIFormatter.PROGRESS_EMPTY * (width - filled)
+            + "]"
+        )
+
+    @staticmethod
+    def score_bar(score: float, width: int = 15) -> str:
+        """Create a visual score bar."""
+        filled = int(width * score)
+        return TUIFormatter.PROGRESS_FULL * filled + TUIFormatter.PROGRESS_EMPTY * (width - filled)
+
+    @staticmethod
+    def table_header(columns: list[tuple[str, int]]) -> str:
+        """Create a table header row."""
+        parts = []
+        for name, width in columns:
+            parts.append(name.center(width))
+        line = TUIFormatter.V_LINE + TUIFormatter.V_LINE.join(parts) + TUIFormatter.V_LINE
+        separator = (
+            TUIFormatter.CORNER_TL
+            + TUIFormatter.T_TOP.join(TUIFormatter.H_LINE * w for _, w in columns)
+            + TUIFormatter.CORNER_TR
+        )
+        return (
+            separator
+            + "\n"
+            + line
+            + "\n"
+            + separator.replace(TUIFormatter.CORNER_TL, TUIFormatter.T_LEFT).replace(
+                TUIFormatter.CORNER_TR, TUIFormatter.T_RIGHT
+            )
+        )
+
+    @staticmethod
+    def table_row(values: list[tuple[str, int]]) -> str:
+        """Create a table row."""
+        parts = []
+        for value, width in values:
+            parts.append(value.center(width))
+        return TUIFormatter.V_LINE + TUIFormatter.V_LINE.join(parts) + TUIFormatter.V_LINE
+
+    @staticmethod
+    def table_footer(widths: list[int]) -> str:
+        """Create a table footer."""
+        return (
+            TUIFormatter.CORNER_BL
+            + TUIFormatter.T_BOTTOM.join(TUIFormatter.H_LINE * w for w in widths)
+            + TUIFormatter.CORNER_BR
+        )
+
+
+def print_model_header(model_name: str, model_idx: int, total_models: int):
+    """Print a prominent header for each model."""
+    progress = TUIFormatter.progress_bar(model_idx, total_models, 30)
+    print(TUIFormatter.header(f"MODEL [{model_idx}/{total_models}]: {model_name}"))
+    print(f"  Progress: {progress} {model_idx}/{total_models} models")
+
+
+def print_landmark_section_header(landmark_name: str, num_images: int, is_related: bool):
+    """Print header for a landmark test section."""
+    relation = "RELATED" if is_related else "UNRELATED"
+    print(f"\n  {TUIFormatter.H_LINE * 96}")
+    print(f"  TESTING: {landmark_name:<20} | Images: {num_images:<3} | Type: {relation}")
+    print(f"  {TUIFormatter.H_LINE * 96}")
+
+    # Column headers
+    cols = [
+        ("  #  ", 6),
+        ("  %  ", 6),
+        ("STATUS", 8),
+        ("PREP", 6),
+        ("   SCORE BAR   ", 17),
+        ("SCORE", 8),
+        ("  TIME ", 8),
+        ("IMAGE", 30),
+    ]
+    header_line = "  " + TUIFormatter.V_LINE.join(name for name, _ in cols)
+    print(header_line)
+    print(f"  {TUIFormatter.H_LINE * 96}")
+
+
+def print_test_result(
+    test_count: int,
+    total_tests: int,
+    image_name: str,
+    preprocessing: bool,
+    result: dict,
+):
+    """Print a formatted test result line."""
+    # Calculate progress
+    progress = (test_count / total_tests * 100) if total_tests > 0 else 0
+
+    # Status
+    if result.get("error"):
+        status = " ERROR "
+    elif result.get("is_correct"):
+        status = "  PASS "
+    else:
+        status = "  FAIL "
+
+    # Preprocessing indicator
+    prep = " ON " if preprocessing else " OFF"
+
+    # Score and time
+    score = result.get("similarity_score", 0)
+    score_bar = TUIFormatter.score_bar(score, 15)
+    time_ms = result.get("time_inference_s", 0) * 1000
+
+    # Truncate image name if too long
+    img_display = image_name[:28] if len(image_name) > 28 else image_name
+
+    # Format row
+    row = (
+        f"  {test_count:5d}|"
+        f"{progress:5.1f}%|"
+        f"{status}|"
+        f"{prep}  |"
+        f" {score_bar} |"
+        f" {score:.4f} |"
+        f"{time_ms:6.1f}ms|"
+        f" {img_display}"
+    )
+    print(row)
+
+
+def print_landmark_section_footer(pass_count: int, fail_count: int, error_count: int):
+    """Print footer with section statistics."""
+    total = pass_count + fail_count + error_count
+    pass_rate = (pass_count / total * 100) if total > 0 else 0
+    print(f"  {TUIFormatter.H_LINE * 96}")
+    print(
+        f"  SECTION SUMMARY: PASS={pass_count} FAIL={fail_count} ERROR={error_count} | Pass Rate: {pass_rate:.1f}%"
+    )
+
+
+def print_live_stats(all_results: list[dict], elapsed_time: float):
+    """Print live running statistics."""
+    if not all_results:
+        return
+
+    correct = sum(1 for r in all_results if r.get("is_correct"))
+    total = len(all_results)
+    accuracy = (correct / total * 100) if total > 0 else 0
+    avg_time = sum(r.get("time_inference_s", 0) for r in all_results) / total
+
+    print(
+        f"\n  [RUNNING STATS] Tests: {total} | Accuracy: {accuracy:.1f}% | Avg Time: {avg_time * 1000:.1f}ms | Elapsed: {elapsed_time:.1f}s"
+    )
 
 
 # ============================================================================
@@ -613,10 +811,8 @@ async def main():
     test_count = 0
     t_start_all = time.time()
 
-    for model_type, model_variant, model_name in MODEL_CONFIGS:
-        print(f"\n{'=' * 100}")
-        print(f"Testing: {model_name}")
-        print(f"{'=' * 100}")
+    for model_idx, (model_type, model_variant, model_name) in enumerate(MODEL_CONFIGS, 1):
+        print_model_header(model_name, model_idx, len(MODEL_CONFIGS))
 
         # Build galleries once per model (for each landmark with coordinates)
         model_galleries = {}  # landmark_name -> gallery_embeddings
@@ -653,8 +849,6 @@ async def main():
 
         # Test all images for this model
         for test_case in test_cases:
-            print(f"\nTesting images from: {test_case.name}")
-
             # Determine gallery to use
             if test_case.has_coordinates and test_case.name in model_galleries:
                 # Use own gallery
@@ -666,19 +860,21 @@ async def main():
                 builder, gallery_embeddings = model_galleries[first_landmark]
                 is_related = False
             else:
-                print(f"   Skipping (no gallery available)")
+                print(f"\n  [SKIP] {test_case.name} - no gallery available")
                 continue
+
+            # Print section header
+            print_landmark_section_header(test_case.name, len(test_case.test_images), is_related)
+
+            # Track section stats
+            section_pass = 0
+            section_fail = 0
+            section_error = 0
 
             # Test each image
             for test_image_path in test_case.test_images:
                 for use_preprocessing in [True, False]:
                     test_count += 1
-                    prep_str = "WITH" if use_preprocessing else "WITHOUT"
-
-                    print(
-                        f"   [{test_count}/{total_tests}] {test_image_path.name} ({prep_str} preprocessing)...",
-                        end=" ",
-                    )
 
                     result = await test_single_configuration(
                         builder,
@@ -694,14 +890,25 @@ async def main():
 
                     all_results.append(result)
 
-                    # Print result
-                    if result["error"]:
-                        print(f"ERROR: {result['error'][:50]}")
+                    # Print formatted result
+                    print_test_result(
+                        test_count,
+                        total_tests,
+                        test_image_path.name,
+                        use_preprocessing,
+                        result,
+                    )
+
+                    # Track section stats
+                    if result.get("error"):
+                        section_error += 1
+                    elif result.get("is_correct"):
+                        section_pass += 1
                     else:
-                        status = "✓ PASS" if result["is_correct"] else "✗ FAIL"
-                        print(
-                            f"{status} Score: {result['similarity_score']:.4f}, Time: {result['time_inference_s']:.3f}s"
-                        )
+                        section_fail += 1
+
+            # Print section footer
+            print_landmark_section_footer(section_pass, section_fail, section_error)
 
         # Clean up after model
         for builder, gallery_embeddings in model_galleries.values():
