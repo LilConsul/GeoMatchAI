@@ -202,24 +202,22 @@ def print_model_header(model_name: str, model_idx: int, total_models: int):
 def print_landmark_section_header(landmark_name: str, num_images: int, is_related: bool):
     """Print header for a landmark test section."""
     relation = "RELATED" if is_related else "UNRELATED"
-    print(f"\n  {TUIFormatter.H_LINE * 96}")
+    print(f"\n  {TUIFormatter.H_LINE * 100}")
     print(f"  TESTING: {landmark_name:<20} | Images: {num_images:<3} | Type: {relation}")
-    print(f"  {TUIFormatter.H_LINE * 96}")
+    print(f"  {TUIFormatter.H_LINE * 100}")
 
-    # Column headers
-    cols = [
-        ("  #  ", 6),
-        ("  %  ", 6),
-        ("STATUS", 8),
-        ("PREP", 6),
-        ("   SCORE BAR   ", 17),
-        ("SCORE", 8),
-        ("  TIME ", 8),
-        ("IMAGE", 30),
-    ]
-    header_line = "  " + TUIFormatter.V_LINE.join(name for name, _ in cols)
-    print(header_line)
-    print(f"  {TUIFormatter.H_LINE * 96}")
+    header = (
+        f"  {'#':>6}|"
+        f"{'%':>6} |"
+        f"{'STATUS':^8}|"
+        f"{'PREP':^5}|"
+        f"{'SCORE BAR':^17}|"
+        f"{'SCORE':^8}|"
+        f"{'TIME':^8}|"
+        f" {'IMAGE':<28}"
+    )
+    print(header)
+    print(f"  {TUIFormatter.H_LINE * 100}")
 
 
 def print_test_result(
@@ -235,14 +233,14 @@ def print_test_result(
 
     # Status
     if result.get("error"):
-        status = " ERROR "
+        status = "ERROR"
     elif result.get("is_correct"):
-        status = "  PASS "
+        status = "PASS"
     else:
-        status = "  FAIL "
+        status = "FAIL"
 
     # Preprocessing indicator
-    prep = " ON " if preprocessing else " OFF"
+    prep = "ON" if preprocessing else "OFF"
 
     # Score and time
     score = result.get("similarity_score", 0)
@@ -252,16 +250,16 @@ def print_test_result(
     # Truncate image name if too long
     img_display = image_name[:28] if len(image_name) > 28 else image_name
 
-    # Format row
+    # Format row - must match header widths exactly
     row = (
-        f"  {test_count:5d}|"
-        f"{progress:5.1f}%|"
-        f"{status}|"
-        f"{prep}  |"
+        f"  {test_count:6d}|"
+        f"{progress:5.1f}% |"
+        f"{status:^8}|"
+        f"{prep:^5}|"
         f" {score_bar} |"
         f" {score:.4f} |"
         f"{time_ms:6.1f}ms|"
-        f" {img_display}"
+        f" {img_display:<28}"
     )
     print(row)
 
@@ -270,7 +268,7 @@ def print_landmark_section_footer(pass_count: int, fail_count: int, error_count:
     """Print footer with section statistics."""
     total = pass_count + fail_count + error_count
     pass_rate = (pass_count / total * 100) if total > 0 else 0
-    print(f"  {TUIFormatter.H_LINE * 96}")
+    print(f"  {TUIFormatter.H_LINE * 100}")
     print(
         f"  SECTION SUMMARY: PASS={pass_count} FAIL={fail_count} ERROR={error_count} | Pass Rate: {pass_rate:.1f}%"
     )
