@@ -1,9 +1,4 @@
-"""
-Mapillary street-level imagery fetcher.
-
-This module provides async fetching of street-level images from Mapillary API
-around specified GPS coordinates.
-"""
+"""Mapillary street-level imagery fetcher."""
 
 import asyncio
 import logging
@@ -15,9 +10,9 @@ import aiohttp
 import mapillary as mly
 from PIL import Image
 
+from .base_fetcher import BaseFetcher
 from ..config import config
 from ..exceptions import MapillaryFetcherError
-from .base_fetcher import BaseFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -51,20 +46,19 @@ class MapillaryFetcher(BaseFetcher):
         max_retries: int = config.fetcher.DEFAULT_MAX_RETRIES,
     ):
         if not api_token:
-            raise ValueError("api_token cannot be empty")
+            raise ValueError("API token required")
 
         self.api_token = api_token
         self._timeout = aiohttp.ClientTimeout(total=request_timeout)
         self._max_retries = max_retries
 
-        # Initialize Mapillary interface
         self.interface = mly.interface
         self.interface.set_access_token(api_token)
 
-        # Suppress verbose mapillary client logging to avoid duplicate output
+        # Suppress verbose mapillary logging
         logging.getLogger("mapillary.utils.client").setLevel(logging.WARNING)
 
-        logger.info("MapillaryFetcher initialized successfully")
+        logger.info("MapillaryFetcher initialized")
 
     async def get_images(
         self,
@@ -73,30 +67,10 @@ class MapillaryFetcher(BaseFetcher):
         *,
         distance: float = config.fetcher.DEFAULT_SEARCH_RADIUS,
         num_images: int = config.fetcher.DEFAULT_NUM_IMAGES,
-    ) -> AsyncGenerator[Image.Image]:
-        """
-        Yield Mapillary images near the provided coordinate as they download.
+    ) -> AsyncGenerator[Image.Image, None]:
+        """Yield images near coordinate as they download."""
+        logger.info(f"Fetching {num_images} images near ({lat}, {lon}) within {distance}m")
 
-        Downloads images concurrently for better performance and yields them
-        as soon as each download completes.
-
-        Args:
-            lat: Latitude of the target location
-            lon: Longitude of the target location
-            distance: Search radius in meters
-                     (defaults to config.fetcher.DEFAULT_SEARCH_RADIUS)
-            num_images: Maximum number of images to fetch
-                       (defaults to config.fetcher.DEFAULT_NUM_IMAGES)
-
-        Yields:
-            PIL.Image: Downloaded images as they become available
-
-        Raises:
-            MapillaryFetcherError: If no images found or API request fails
-        """
-        logger.info(f"Fetching {num_images} images near ({lat}, {lon}) within {distance}m radius")
-
-        # Fetch image metadata and extract image IDs
         image_ids = await self._fetch_image_metadata(lat, lon, distance, num_images)
 
         # Get thumbnail URLs in parallel
@@ -142,33 +116,20 @@ class MapillaryFetcher(BaseFetcher):
             logger.error(f"Failed to fetch image metadata from Mapillary: {e}")
             raise MapillaryFetcherError(f"Mapillary API request failed: {e}") from e
 
-        # Extract image IDs
         features = images_json.get("features", [])
         if not features:
-            logger.warning(f"No images found near ({lat}, {lon})")
-            raise MapillaryFetcherError(
-                f"No images found near coordinates ({lat}, {lon}) within {distance}m radius"
-            )
+            raise MapillaryFetcherError(f"No images found near ({lat}, {lon}) within {distance}m")
 
         image_ids = [features[i]["properties"]["id"] for i in range(min(num_images, len(features)))]
-        logger.info(f"Found {len(image_ids)} image(s) to download")
-
+        logger.info(f"Found {len(image_ids)} images")
         return image_ids
 
     async def _get_thumbnail_urls(self, image_ids: list[str]) -> list[tuple[str, str]]:
-        """
-        Get thumbnail URLs for image IDs in parallel.
-
-        Args:
-            image_ids: List of Mapillary image IDs
-
-        Returns:
-            List of (url, id) tuples for valid URLs
-        """
+        """Get thumbnail URLs for image IDs in parallel."""
         loop = asyncio.get_running_loop()
 
         with ThreadPoolExecutor() as executor:
-            thumbnail_url_tasks = [
+            tasks = [
                 loop.run_in_executor(
                     executor,
                     lambda img_id=img_id: self.interface.image_thumbnail(
@@ -177,88 +138,52 @@ class MapillaryFetcher(BaseFetcher):
                 )
                 for img_id in image_ids
             ]
-            thumbnail_urls = await asyncio.gather(*thumbnail_url_tasks, return_exceptions=True)
+            thumbnail_urls = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Filter valid URLs and pair with IDs
         url_id_pairs = [
-            (url, img_id) for url, img_id in zip(thumbnail_urls, image_ids, strict=False)
+            (url, img_id)
+            for url, img_id in zip(thumbnail_urls, image_ids, strict=False)
             if isinstance(url, str) and url
         ]
+
         if not url_id_pairs:
-            logger.error("No valid thumbnail URLs obtained")
-            raise MapillaryFetcherError("Failed to get any thumbnail URLs")
+            raise MapillaryFetcherError("No valid thumbnail URLs obtained")
 
         return url_id_pairs
 
     async def _download_images(
         self, session: aiohttp.ClientSession, url_id_pairs: list[tuple[str, str]]
-    ) -> AsyncGenerator[Image.Image]:
-        """
-        Download images concurrently and yield as they complete.
+    ) -> AsyncGenerator[Image.Image, None]:
+        """Download images concurrently and yield as they complete."""
+        tasks = [self._download_image(session, url, img_id) for url, img_id in url_id_pairs]
 
-        Args:
-            session: aiohttp ClientSession
-            url_id_pairs: List of (url, id) tuples
-
-        Yields:
-            PIL.Image instances
-        """
-        download_tasks = [
-            self._download_image(session, url, img_id)
-            for url, img_id in url_id_pairs
-        ]
-
-        # Use as_completed to yield images as soon as they're ready
-        successful_downloads = 0
-        for coro in asyncio.as_completed(download_tasks):
+        successful = 0
+        for coro in asyncio.as_completed(tasks):
             img = await coro
             if img is not None:
-                successful_downloads += 1
+                successful += 1
                 yield img
 
-        logger.info(
-            f"Successfully downloaded {successful_downloads}/{len(download_tasks)} images"
-        )
+        logger.info(f"Downloaded {successful}/{len(tasks)} images")
 
     async def _download_image(
         self, session: aiohttp.ClientSession, url: str, image_id: str
     ) -> Image.Image | None:
-        """
-        Download image from URL asynchronously with retry logic.
-
-        Args:
-            session: aiohttp client session
-            url: Image URL to download
-            image_id: Mapillary image ID for logging
-
-        Returns:
-            PIL.Image if successful, None otherwise
-        """
+        """Download image with retry logic."""
         for attempt in range(self._max_retries):
             try:
                 async with session.get(url) as response:
                     response.raise_for_status()
                     image_data = await response.read()
-                    img = Image.open(BytesIO(image_data))
-                    logger.debug(f"Downloaded image {image_id}: {img.size} (attempt {attempt + 1})")
-                    return img
+                    return Image.open(BytesIO(image_data))
 
-            except TimeoutError:
-                logger.warning(
-                    f"Timeout downloading image {image_id} "
-                    f"(attempt {attempt + 1}/{self._max_retries})"
-                )
-            except aiohttp.ClientError as e:
-                logger.warning(
-                    f"HTTP error downloading image {image_id}: {e} "
-                    f"(attempt {attempt + 1}/{self._max_retries})"
-                )
+            except (TimeoutError, aiohttp.ClientError) as e:
+                logger.warning(f"Download failed {image_id} (attempt {attempt + 1}): {e}")
             except Exception as e:
-                logger.error(f"Unexpected error downloading image {image_id}: {e}")
-                break  # Don't retry on unexpected errors
+                logger.error(f"Unexpected error {image_id}: {e}")
+                break
 
             if attempt < self._max_retries - 1:
-                await asyncio.sleep(1.0 * (attempt + 1))  # Exponential backoff
+                await asyncio.sleep(1.0 * (attempt + 1))
 
-        logger.error(f"Failed to download image {image_id} after {self._max_retries} attempts")
         return None
