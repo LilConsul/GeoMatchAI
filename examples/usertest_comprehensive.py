@@ -33,9 +33,11 @@ from geomatchai.verification.verifier import LandmarkVerifier
 # Configuration
 # ============================================================================
 
+
 @dataclass
 class LandmarkTestCase:
     """Represents a landmark folder with test images and gallery coordinates."""
+
     name: str
     folder_path: Path
     has_coordinates: bool
@@ -155,7 +157,7 @@ def discover_test_cases(input_dir: Path) -> list[LandmarkTestCase]:
             has_coordinates=has_coordinates,
             lat=lat,
             lon=lon,
-            test_images=test_images
+            test_images=test_images,
         )
 
         test_cases.append(test_case)
@@ -165,7 +167,6 @@ def discover_test_cases(input_dir: Path) -> list[LandmarkTestCase]:
         print(f"   Found: {landmark_name:<15} {len(test_images)} images  {coord_status}")
 
     return test_cases
-
 
 
 # ============================================================================
@@ -574,10 +575,7 @@ async def main():
             gallery_images = []
             try:
                 async for img in fetcher.get_images(
-                    test_case.lat,
-                    test_case.lon,
-                    num_images=GALLERY_SIZE,
-                    distance=GALLERY_DISTANCE
+                    test_case.lat, test_case.lon, num_images=GALLERY_SIZE, distance=GALLERY_DISTANCE
                 ):
                     gallery_images.append(img)
             except Exception as e:
@@ -599,7 +597,9 @@ async def main():
     print("=" * 100)
     print(f"\nTotal test images: {total_test_images}")
     for tc in test_cases:
-        print(f"   {tc.name:<15} {len(tc.test_images)} images  {'(with gallery)' if tc.has_coordinates else '(negative case)'}")
+        print(
+            f"   {tc.name:<15} {len(tc.test_images)} images  {'(with gallery)' if tc.has_coordinates else '(negative case)'}"
+        )
 
     print(f"\nTotal test configurations: {total_tests}")
     print(f"   ({len(MODEL_CONFIGS)} models × {total_test_images} images × 2 preprocessing modes)")
@@ -630,20 +630,22 @@ async def main():
 
             try:
                 builder = GalleryBuilder(
-                    device=device,
-                    model_type=model_type,
-                    model_variant=model_variant
+                    device=device, model_type=model_type, model_variant=model_variant
                 )
 
                 async def image_gen() -> AsyncGenerator[Image.Image, None]:
                     for img in galleries[test_case.name]:
                         yield img
 
-                gallery_embeddings = await builder.build_gallery(image_gen(), skip_preprocessing=True)
+                gallery_embeddings = await builder.build_gallery(
+                    image_gen(), skip_preprocessing=True
+                )
                 model_galleries[test_case.name] = (builder, gallery_embeddings)
 
                 t_gallery_build = time.time() - t_start
-                print(f"   Gallery built: {gallery_embeddings.shape[0]} embeddings in {t_gallery_build:.2f}s")
+                print(
+                    f"   Gallery built: {gallery_embeddings.shape[0]} embeddings in {t_gallery_build:.2f}s"
+                )
 
             except Exception as e:
                 print(f"   Error building gallery: {e}")

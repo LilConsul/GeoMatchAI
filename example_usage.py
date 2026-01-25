@@ -37,7 +37,9 @@ async def example_with_mapillary():
     config.set_log_level("INFO")
 
     # Create fetcher
-    fetcher = MapillaryFetcher(api_token=config.get_mapillary_api_key()) # Default value will be retrieved from config
+    fetcher = MapillaryFetcher(
+        api_token=config.get_mapillary_api_key()
+    )  # Default value will be retrieved from config
 
     # Create verifier (uses config defaults)
     verifier = await GeoMatchAI.create(fetcher=fetcher)
