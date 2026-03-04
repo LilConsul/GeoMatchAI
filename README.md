@@ -4,7 +4,7 @@
 
 <!-- Project Status -->
 <div>
-<a href="https://github.com/LilConsul/GeoMatchAI"><img src="https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge&labelColor=black" alt="Status" /></a>
+<a href="https://github.com/LilConsul/GeoMatchAI"><img src="https://img.shields.io/badge/Status-Completed-blue?style=for-the-badge&labelColor=black" alt="Status" /></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge&labelColor=black" alt="License" /></a>
 <a href="https://github.com/LilConsul/GeoMatchAI"><img src="https://img.shields.io/badge/Type-Library-orange?style=for-the-badge&labelColor=black" alt="Type" /></a>
 <a href="https://github.com/LilConsul/GeoMatchAI"><img src="https://img.shields.io/badge/Skill-Issue-ff69b4?style=for-the-badge&labelColor=black" alt="Skill Issue" /></a>
